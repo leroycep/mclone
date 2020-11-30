@@ -1,0 +1,3 @@
+[submodule "zigmath"]
+	path = zigmath
+	url = https://github.com/leroycep/zigmath.git
