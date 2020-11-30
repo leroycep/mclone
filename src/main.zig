@@ -93,7 +93,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             else => {},
         },
         .MouseMotion => |mouse_move| {
-            const MOUSE_SPEED = 0.001;
+            const MOUSE_SPEED = 0.005;
             camera_angle = camera_angle.subv(mouse_move.rel.intToFloat(f32).scale(MOUSE_SPEED));
             if (camera_angle.x < -std.math.pi)
                 camera_angle.x += std.math.pi * 2.0;
@@ -117,8 +117,9 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     // TODO: centralize forward/right vector calculations
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
-    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.x));
+    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
+
 
     cam_position = cam_position.addv(forward.scale(forward_move));
     cam_position = cam_position.addv(right.scale(right_move));
@@ -130,7 +131,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
-    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.x));
+    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
 
     const screen_size = context.getScreenSize().intToFloat(f32);
