@@ -1,8 +1,8 @@
-#version 100
+#version 300 es
 
-attribute vec4 coord;
+in vec4 coord;
 uniform mat4 mvp;
-varying vec4 texcoord;
+out vec4 texcoord;
 
 void main(void) {
   texcoord = coord;
