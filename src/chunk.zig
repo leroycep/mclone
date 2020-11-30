@@ -83,29 +83,29 @@ pub const ChunkRender = struct {
                     // View from negative y
                     vertex[i] = Byte4{x,      y,      z,      @bitCast(i8, blockType)};
                     i += 1;
-                    vertex[i] = Byte4{x,      y,      z + 1,  @bitCast(i8, blockType)};
-                    i += 1;
-                    vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
-                    i += 1;
                     vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x,      y,      z + 1,  @bitCast(i8, blockType)};
+                    i += 1;
+                    vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y,      z + 1,  @bitCast(i8, blockType)};
+                    i += 1;
+                    vertex[i] = Byte4{x,      y,      z + 1,  @bitCast(i8, blockType)};
                     i += 1;
 
                     // View from positive y
                     vertex[i] = Byte4{x,      y + 1,  z,      @bitCast(i8, blockType)};
                     i += 1;
-                    vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
-                    i += 1;
                     vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
+                    i += 1;
+                    vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
+                    i += 1;
+                    vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y + 1,  z + 1,  @bitCast(i8, blockType)};
-                    i += 1;
-                    vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
                     i += 1;
 
                     // View from negative z
@@ -115,11 +115,11 @@ pub const ChunkRender = struct {
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
                     i += 1;
-                    vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
-                    i += 1;
                     vertex[i] = Byte4{x,      y + 1,  z,      @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
+                    i += 1;
+                    vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
                     i += 1;
 
                     // View from positive z
@@ -129,11 +129,11 @@ pub const ChunkRender = struct {
                     i += 1;
                     vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
                     i += 1;
+                    vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
+                    i += 1;
                     vertex[i] = Byte4{x + 1,  y,      z + 1,  @bitCast(i8, blockType)};
                     i += 1;
                     vertex[i] = Byte4{x + 1,  y + 1,  z + 1,  @bitCast(i8, blockType)};
-                    i += 1;
-                    vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
                     i += 1;
                 }
             }
