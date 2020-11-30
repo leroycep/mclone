@@ -99,8 +99,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projectionMatrix);
 
     // Clear the screen
-    platform.glClearColor(0.5, 0.5, 0.5, 0.9);
-    platform.glClear(platform.GL_COLOR_BUFFER_BIT);
+    platform.glClearColor(0.5, 0.5, 0.5, 1.0);
+    platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
     platform.glViewport(0, 0, 640, 480);
 
     chunkRender.render(shaderProgram);
