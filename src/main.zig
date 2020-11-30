@@ -9,6 +9,7 @@ const Vec2f = math.Vec2f;
 const vec2f = math.vec2f;
 const Vec2i = math.Vec2i;
 const vec2i = math.vec2i;
+const Mat4f = math.Mat4f;
 const pi = std.math.pi;
 const OBB = collision.OBB;
 const core = @import("core");
@@ -24,10 +25,9 @@ const DEG_TO_RAD = std.math.pi / 180.0;
 const VERT_CODE = @embedFile("glescraft.vert");
 const FRAG_CODE = @embedFile("glescraft.frag");
 
-
 var shaderProgram: platform.GLuint = undefined;
 var projectionMatrixUniform: platform.GLint = undefined;
-var translation = vec2f(150, -30);
+var cam_position = vec3f(10, -10, 10);
 
 // var chunk: Chunk = undefined;
 var chunkRender: ChunkRender = undefined;
@@ -62,7 +62,7 @@ pub fn onInit(context: *platform.Context) !void {
     chunk.fill(core.chunk.BlockType.DIRT);
     chunkRender = ChunkRender.init(chunk);
 
-    projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "projectionMatrix");
+    projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
 
     std.log.warn("end app init", .{});
 }
@@ -74,29 +74,22 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
     }
 }
 
-pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
-}
+pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {}
 
 pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glUseProgram(shaderProgram);
 
-    // Set the scaling matrix so that 1 unit = 1 pixel
-    const screen_size = context.getScreenSize();
-    const translationMatrix = [_]f32{
-        1, 0, 0, translation.x,
-        0, 1, 0, translation.y,
-        0, 0, 1, 0,
-        0, 0, 0, 1,
-    };
-    const scalingMatrix = [_]f32{
-        2 / @intToFloat(f32, screen_size.x), 0,                                    0, -1,
-        0,                                   -2 / @intToFloat(f32, screen_size.y), 0, 1,
-        0,                                   0,                                    1, 0,
-        0,                                   0,                                    0, 1,
-    };
-    const projectionMatrix = util.mat.mulMat4(scalingMatrix, translationMatrix);
+    const screen_size = context.getScreenSize().intToFloat(f32);
 
-    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projectionMatrix);
+    const aspect = screen_size.x / screen_size.y;
+    const zNear = 1;
+    const zFar = 2000;
+    const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
+
+    const UP = vec3f(0, -1, 0);
+    const projection = perspective.mul(Mat4f.lookAt(cam_position, vec3f(0, 0, 0), UP));
+
+    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
 
     // Clear the screen
     platform.glClearColor(0.5, 0.5, 0.5, 1.0);
@@ -105,4 +98,3 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     chunkRender.render(shaderProgram);
 }
-
