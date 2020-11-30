@@ -6,6 +6,7 @@ pub const GLuint = c.GLuint;
 pub const GLint = c.GLint;
 pub const GLsizei = c.GLsizei;
 pub const GLushort = c.GLushort;
+pub const GLbyte = c.GLbyte;
 
 pub const GL_VERTEX_SHADER = c.GL_VERTEX_SHADER;
 pub const GL_FRAGMENT_SHADER = c.GL_FRAGMENT_SHADER;
@@ -25,6 +26,8 @@ pub const GL_BLEND = c.GL_BLEND;
 pub const GL_SRC_ALPHA = c.GL_SRC_ALPHA;
 pub const GL_ONE_MINUS_SRC_ALPHA = c.GL_ONE_MINUS_SRC_ALPHA;
 pub const GL_DYNAMIC_DRAW = c.GL_DYNAMIC_DRAW;
+pub const GL_CULL_FACE = c.GL_CULL_FACE;
+pub const GL_BYTE = c.GL_BYTE;
 
 pub const glCreateShader = c.glCreateShader;
 pub const glCompileShader = c.glCompileShader;
@@ -47,6 +50,8 @@ pub const glGetUniformLocation = c.glGetUniformLocation;
 pub const glUniformMatrix4fv = c.glUniformMatrix4fv;
 pub const glBlendFunc = c.glBlendFunc;
 pub const glDeleteShader = c.glDeleteShader;
+pub const glGenBuffers = c.glGenBuffers;
+pub const glDrawArrays = c.glDrawArrays;
 
 pub fn glShaderSource(shader: c.GLuint, source: []const u8) void {
     c.glShaderSource(shader, 1, &source.ptr, &@intCast(c_int, source.len));
