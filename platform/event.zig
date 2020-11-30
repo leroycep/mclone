@@ -75,6 +75,7 @@ pub const MOUSE_BUTTONS = struct {
 
 pub const MouseMoveEvent = struct {
     pos: Vec2i,
+    rel: Vec2i,
     buttons: u32,
 
     pub fn is_pressed(self: @This(), button: MouseButton) bool {

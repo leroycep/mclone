@@ -34,6 +34,13 @@ pub const Context = struct {
         c.SDL_GL_GetDrawableSize(this.window, &size.x, &size.y);
         return size;
     }
+
+    pub fn setRelativeMouseMode(this: *@This(), val: bool) !void {
+        const res = c.SDL_SetRelativeMouseMode(if (val) .SDL_TRUE else .SDL_FALSE);
+        if (res != 0) {
+            return logSDLErr(error.CouldntSetRelativeMouseMode);
+        }
+    }
 };
 
 pub fn run(app: App) !void {
@@ -116,8 +123,8 @@ pub fn run(app: App) !void {
 
         try app.render(&context, alpha);
         c.SDL_GL_SwapWindow(sdl_window);
-        
-        std.time.sleep(10_000);
+
+        //std.time.sleep(10_000);
     }
 }
 
@@ -128,6 +135,7 @@ pub const Error = error{
     CouldntLoadBMP,
     CouldntCreateTexture,
     ImgInit,
+    CouldntSetRelativeMouseMode,
 };
 
 pub fn logSDLErr(err: Error) Error {
@@ -206,7 +214,13 @@ pub fn sdlToCommonEvent(sdlEvent: c.SDL_Event) ?Event {
         c.SDL_TEXTINPUT => return null,
 
         // Mouse events
-        c.SDL_MOUSEMOTION => return Event{ .MouseMotion = .{ .pos = Vec2i.init(sdlEvent.motion.x, sdlEvent.motion.y), .buttons = 0 } },
+        c.SDL_MOUSEMOTION => return Event{
+            .MouseMotion = .{
+                .pos = Vec2i.init(sdlEvent.motion.x, sdlEvent.motion.y),
+                .rel = Vec2i.init(sdlEvent.motion.xrel, sdlEvent.motion.yrel),
+                .buttons = 0,
+            },
+        },
         c.SDL_MOUSEBUTTONDOWN => return Event{
             .MouseButtonDown = .{
                 .pos = Vec2i.init(sdlEvent.button.x, sdlEvent.button.y),
