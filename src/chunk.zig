@@ -161,6 +161,7 @@ pub const ChunkRender = struct {
         platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
         var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
         platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_BYTE, platform.GL_FALSE, 0, null);
+        platform.glEnableVertexAttribArray(attribute_coord);
         platform.glDrawArrays(platform.GL_TRIANGLES, 0, @intCast(i32, self.elements));
     }
 };
