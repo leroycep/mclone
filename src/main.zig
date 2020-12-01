@@ -32,7 +32,7 @@ var cam_position = vec3f(10, -10, 10);
 // var chunk: Chunk = undefined;
 var chunkRender: ChunkRender = undefined;
 
-var dirtTex: platform.GLuint = undefined;
+var tilesetTex: platform.GLuint = undefined;
 
 const Input = struct {
     left: f32 = 0,
@@ -73,18 +73,42 @@ pub fn onInit(context: *platform.Context) !void {
     // Set up VAO
     var chunk = Chunk.init();
     chunk.fill(core.chunk.BlockType.DIRT);
+    chunk.blk[0][0][0] = .STONE;
+    chunk.blk[0][1][0] = .STONE;
+    chunk.blk[0][2][0] = .STONE;
+    chunk.blk[0][3][0] = .AIR;
+    chunk.blk[0][4][0] = .AIR;
+    chunk.blk[0][5][0] = .AIR;
     chunkRender = ChunkRender.init(chunk);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
 
     try context.setRelativeMouseMode(true);
 
-    dirtTex = try loadImage(context.alloc, "assets/dirt.png");
+    tilesetTex = try loadTileset(context.alloc, &[_][]const u8{ "assets/dirt.png", "assets/stone.png" });
 
     std.log.warn("end app init", .{});
 }
 
-fn loadImage(alloc: *std.mem.Allocator, filepath: []const u8) !platform.GLuint {
+fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !platform.GLuint {
+    var texture: platform.GLuint = undefined;
+    platform.glGenTextures(1, &texture);
+    platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, texture);
+    platform.glTexStorage3D(platform.GL_TEXTURE_2D_ARRAY, 2, platform.GL_RGBA8, 16, 16, 10);
+
+    for (filepaths) |filepath, i| {
+        try loadTile(alloc, @intCast(c_int, i + 1), filepath);
+    }
+
+    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_WRAP_S, platform.GL_REPEAT);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_WRAP_T, platform.GL_REPEAT);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MIN_FILTER, platform.GL_NEAREST);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MAG_FILTER, platform.GL_NEAREST);
+
+    return texture;
+}
+
+fn loadTile(alloc: *std.mem.Allocator, layer: platform.GLint, filepath: []const u8) !void {
     const cwd = std.fs.cwd();
     const image_contents = try cwd.readFileAlloc(alloc, filepath, 50000);
     defer alloc.free(image_contents);
@@ -96,6 +120,7 @@ fn loadImage(alloc: *std.mem.Allocator, filepath: []const u8) !platform.GLuint {
     var pixelData = try alloc.alloc(u8, load_res.width * load_res.height * 4);
     defer alloc.free(pixelData);
 
+    // TODO: skip converting to RGBA and let OpenGL handle it by telling it what format it is in
     var pixelsIterator = zigimg.color.ColorStorageIterator.init(&load_res.pixels.?);
 
     var i: usize = 0;
@@ -107,19 +132,8 @@ fn loadImage(alloc: *std.mem.Allocator, filepath: []const u8) !platform.GLuint {
         pixelData[i * 4 + 3] = integer_color.A;
     }
 
-    var texture: platform.GLuint = undefined;
-    platform.glGenTextures(1, &texture);
-    platform.glBindTexture(platform.GL_TEXTURE_2D, texture);
-
-    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_WRAP_S, platform.GL_REPEAT);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_WRAP_T, platform.GL_REPEAT);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_MIN_FILTER, platform.GL_NEAREST);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_MAG_FILTER, platform.GL_NEAREST);
-
-    platform.glTexImage2D(platform.GL_TEXTURE_2D, 0, platform.GL_RGBA, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 0, platform.GL_RGBA, platform.GL_UNSIGNED_BYTE, pixelData.ptr);
-    platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
-
-    return texture;
+    platform.glTexSubImage3D(platform.GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 1, platform.GL_RGBA, platform.GL_UNSIGNED_BYTE, pixelData.ptr);
+    //platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
 }
 
 pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
@@ -191,7 +205,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
     platform.glViewport(0, 0, 640, 480);
 
-    platform.glBindTexture(platform.GL_TEXTURE_2D, dirtTex);
+    platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
 
     chunkRender.render(shaderProgram);
 }
