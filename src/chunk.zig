@@ -24,11 +24,14 @@ const BlockDescription = struct {
     /// Block obscures other blocks
     is_opaque: bool = true,
     rendering: union(enum) {
-        // A block that is not visible
+        /// A block that is not visible
         None: void,
 
         /// A block with a texture for all sides
         Single: u7,
+
+        /// A block with a different texture for each side
+        Multi: [6]u7,
     },
 
     pub fn isOpaque(this: @This()) bool {
@@ -39,6 +42,7 @@ const BlockDescription = struct {
         switch (this.rendering) {
             .None => return false,
             .Single => return true,
+            .Multi => return true,
         }
     }
 
@@ -46,6 +50,14 @@ const BlockDescription = struct {
         switch (this.rendering) {
             .None => return 0,
             .Single => |tex| return tex,
+            .Multi => |texs| return switch(side) {
+                .Top    => texs[0],
+                .Bottom => texs[1],
+                .North  => texs[2],
+                .East   => texs[3],
+                .South  => texs[4],
+                .West   => texs[5],
+            }
         }
     }
 };
@@ -57,11 +69,14 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .is_opaque = false,
         .rendering = .None,
     };
+    descriptions[@enumToInt(BlockType.STONE)] = .{
+        .rendering = .{ .Single = 2 },
+    };
     descriptions[@enumToInt(BlockType.DIRT)] = .{
         .rendering = .{ .Single = 1 },
     };
-    descriptions[@enumToInt(BlockType.STONE)] = .{
-        .rendering = .{ .Single = 2 },
+    descriptions[@enumToInt(BlockType.GRASS)] = .{
+        .rendering = .{ .Multi = [6]u7{3, 1, 4, 4, 4, 4}},
     };
 
     break :describe_blocks descriptions;

@@ -6,8 +6,9 @@ pub const CZ = 16;
 
 pub const BlockType = enum(u8) {
     AIR,
-    DIRT,
     STONE,
+    DIRT,
+    GRASS,
 };
 
 pub const Chunk = struct {
@@ -43,4 +44,13 @@ pub const Chunk = struct {
         }
     }
 
+    pub fn layer(self: *@This(), y: u8, blockType: BlockType) void {
+        var xi : u8 = 0;
+        while (xi < CX) : (xi += 1) {
+            var zi : u8 = 0;
+            while (zi < CZ) : (zi += 1) {
+                self.blk[xi][y][zi] = blockType;
+            }
+        }
+    }
 };

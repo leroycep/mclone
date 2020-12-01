@@ -73,19 +73,26 @@ pub fn onInit(context: *platform.Context) !void {
     // Set up VAO
     var chunk = Chunk.init();
     chunk.fill(core.chunk.BlockType.DIRT);
-    chunk.blk[0][0][0] = .STONE;
-    chunk.blk[0][1][0] = .STONE;
-    chunk.blk[0][2][0] = .STONE;
+    chunk.layer(15, core.chunk.BlockType.GRASS);
+    chunk.layer(0, core.chunk.BlockType.STONE);
+    chunk.layer(1, core.chunk.BlockType.STONE);
+    chunk.layer(2, core.chunk.BlockType.STONE);
     chunk.blk[0][3][0] = .AIR;
     chunk.blk[0][4][0] = .AIR;
     chunk.blk[0][5][0] = .AIR;
+
     chunkRender = ChunkRender.init(chunk);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
 
     try context.setRelativeMouseMode(true);
 
-    tilesetTex = try loadTileset(context.alloc, &[_][]const u8{ "assets/dirt.png", "assets/stone.png" });
+    tilesetTex = try loadTileset(context.alloc, &[_][]const u8{
+        "assets/dirt.png",
+        "assets/stone.png",
+        "assets/grass.png",
+        "assets/grass-side.png"
+    });
 
     std.log.warn("end app init", .{});
 }
