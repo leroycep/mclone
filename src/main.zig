@@ -259,6 +259,8 @@ const VoxelTraversal = struct {
     step: math.Vec(3, i32),
     tMax: Vec3f,
     tDelta: Vec3f,
+    neg_diff: ?math.Vec(3, i32),
+    returned_first: bool = false,
     returned_last_voxel: bool = false,
 
     pub fn init(start: Vec3f, end: Vec3f) @This() {
@@ -290,9 +292,6 @@ const VoxelTraversal = struct {
             diff.z -= 1;
             neg_ray = true;
         }
-        if (neg_ray) {
-            current_voxel = current_voxel.addv(diff);
-        }
 
         return @This(){
             .current_voxel = current_voxel,
@@ -308,10 +307,21 @@ const VoxelTraversal = struct {
                 .y = if (direction.y != 0) 1.0 / direction.y * @intToFloat(f32, step.y) else std.math.f32_max,
                 .z = if (direction.z != 0) 1.0 / direction.z * @intToFloat(f32, step.z) else std.math.f32_max,
             },
+            .neg_diff = if (neg_ray) diff else null,
         };
     }
 
     pub fn next(this: *@This()) ?math.Vec(3, i32) {
+        if (!this.returned_first) {
+            if (this.neg_diff) |diff| {
+                const pos = this.current_voxel;
+                this.current_voxel = this.current_voxel.addv(diff);
+                this.neg_diff = null;
+                return pos;
+            }
+            this.returned_first = true;
+            return this.current_voxel;
+        }
         if (this.last_voxel.eql(this.current_voxel)) {
             if (this.returned_last_voxel) {
                 return null;
