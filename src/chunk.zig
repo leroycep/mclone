@@ -22,7 +22,7 @@ const Side = enum {
 
 const BlockDescription = struct {
     /// Block obscures other blocks
-    is_opaque: bool = true,
+    is_opaque: bool = true, // TODO: make enum {None, Self, All}
     rendering: union(enum) {
         /// A block that is not visible
         None: void,
