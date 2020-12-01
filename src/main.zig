@@ -260,7 +260,8 @@ const VoxelTraversal = struct {
     returned_last_voxel: bool = false,
 
     pub fn init(start: Vec3f, end: Vec3f) @This() {
-        const current_voxel = start.floor().floatToInt(i32);
+        var current_voxel = start.floor().floatToInt(i32);
+        const last_voxel = end.floor().floatToInt(i32);
         const direction = end.subv(start);
         const step = math.Vec(3, i32){
             .x = if (direction.x >= 0) 1 else -1,
@@ -272,9 +273,28 @@ const VoxelTraversal = struct {
             .y = @intToFloat(f32, current_voxel.y + step.y),
             .z = @intToFloat(f32, current_voxel.z + step.z),
         };
+
+        var diff = math.Vec(3, i32).init(0, 0, 0);
+        var neg_ray = false;
+        if (current_voxel.x != last_voxel.x and direction.x < 0) {
+            diff.x -= 1;
+            neg_ray = true;
+        }
+        if (current_voxel.y != last_voxel.y and direction.y < 0) {
+            diff.y -= 1;
+            neg_ray = true;
+        }
+        if (current_voxel.z != last_voxel.z and direction.z < 0) {
+            diff.z -= 1;
+            neg_ray = true;
+        }
+        if (neg_ray) {
+            current_voxel = current_voxel.addv(diff);
+        }
+
         return @This(){
             .current_voxel = current_voxel,
-            .last_voxel = end.floor().floatToInt(i32),
+            .last_voxel = last_voxel,
             .step = step,
             .tMax = math.Vec3f{
                 .x = if (direction.x != 0) (next_voxel_boundary.x - start.x) / direction.x else std.math.f32_max,
