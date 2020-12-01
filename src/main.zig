@@ -142,7 +142,7 @@ fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !platfo
     var texture: platform.GLuint = undefined;
     platform.glGenTextures(1, &texture);
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, texture);
-    platform.glTexStorage3D(platform.GL_TEXTURE_2D_ARRAY, 2, platform.GL_RGBA8, 16, 16, 10);
+    platform.glTexStorage3D(platform.GL_TEXTURE_2D_ARRAY, 2, platform.GL_RGBA8, 16, 16, @intCast(c_int, filepaths.len + 1));
 
     for (filepaths) |filepath, i| {
         try loadTile(alloc, @intCast(c_int, i + 1), filepath);
@@ -401,30 +401,30 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     if (raycast(cam_position, camera_angle, 5)) |selected_int| {
         const selected = selected_int.intToFloat(f32);
         const box = [24][4]f32{
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
         };
 
         platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
@@ -433,10 +433,10 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     }
 
     const cross = [4][4]f32{
-        .{ -0.05, 0, -2, 9 },
-        .{ 0.05, 0, -2, 9 },
-        .{ 0, -0.05, -2, 9 },
-        .{ 0, 0.05, -2, 9 },
+        .{ -0.05, 0, -2, 10 },
+        .{ 0.05, 0, -2, 10 },
+        .{ 0, -0.05, -2, 10 },
+        .{ 0, 0.05, -2, 10 },
     };
 
     platform.glDisable(platform.GL_DEPTH_TEST);
