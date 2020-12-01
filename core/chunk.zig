@@ -5,12 +5,14 @@ pub const CY = 16;
 pub const CZ = 16;
 
 pub const BlockType = enum(u8) {
-    AIR,
-    STONE,
-    DIRT,
-    GRASS,
-    WOOD,
-    LEAF,
+    Air,
+    Stone,
+    Dirt,
+    Grass,
+    Wood,
+    Leaf,
+    CoalOre,
+    IronOre,
 };
 
 pub const Chunk = struct {

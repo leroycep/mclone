@@ -65,25 +65,31 @@ const BlockDescription = struct {
 const DESCRIPTIONS = comptime describe_blocks: {
     var descriptions: [256]BlockDescription = undefined;
 
-    descriptions[@enumToInt(BlockType.AIR)] = .{
+    descriptions[@enumToInt(BlockType.Air)] = .{
         .is_opaque = false,
         .rendering = .None,
     };
-    descriptions[@enumToInt(BlockType.STONE)] = .{
+    descriptions[@enumToInt(BlockType.Stone)] = .{
         .rendering = .{ .Single = 2 },
     };
-    descriptions[@enumToInt(BlockType.DIRT)] = .{
+    descriptions[@enumToInt(BlockType.Dirt)] = .{
         .rendering = .{ .Single = 1 },
     };
-    descriptions[@enumToInt(BlockType.GRASS)] = .{
+    descriptions[@enumToInt(BlockType.Grass)] = .{
         .rendering = .{ .Multi = [6]u7{3, 1, 4, 4, 4, 4}},
     };
-    descriptions[@enumToInt(BlockType.WOOD)] = .{
+    descriptions[@enumToInt(BlockType.Wood)] = .{
         .rendering = .{ .Multi = [6]u7{5, 5, 6, 6, 6, 6}},
     };
-    descriptions[@enumToInt(BlockType.LEAF)] = .{
+    descriptions[@enumToInt(BlockType.Leaf)] = .{
         .is_opaque = false,
         .rendering = .{ .Single = 7},
+    };
+    descriptions[@enumToInt(BlockType.CoalOre)] = .{
+        .rendering = .{ .Single = 8 },
+    };
+    descriptions[@enumToInt(BlockType.IronOre)] = .{
+        .rendering = .{ .Single = 9 },
     };
 
     break :describe_blocks descriptions;

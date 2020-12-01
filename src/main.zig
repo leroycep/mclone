@@ -73,45 +73,45 @@ pub fn onInit(context: *platform.Context) !void {
     // Set up VAO
     var chunk = Chunk.init();
     // chunk.fill(.DIRT);
-    chunk.layer(0, .STONE);
-    chunk.layer(1, .STONE);
-    chunk.layer(2, .STONE);
-    chunk.layer(3, .DIRT);
-    chunk.layer(4, .DIRT);
-    chunk.layer(5, .DIRT);
-    chunk.layer(6, .GRASS);
-    chunk.blk[0][3][0] = .AIR;
-    chunk.blk[0][4][0] = .AIR;
-    chunk.blk[0][5][0] = .AIR;
+    chunk.layer(0, .Stone);
+    chunk.layer(1, .Stone);
+    chunk.layer(2, .Stone);
+    chunk.layer(3, .Dirt);
+    chunk.layer(4, .Dirt);
+    chunk.layer(5, .Dirt);
+    chunk.layer(6, .Grass);
+    chunk.blk[0][1][0] = .IronOre;
+    chunk.blk[0][2][0] = .CoalOre;
+    chunk.blk[0][3][0] = .Air;
 
-    chunk.blk[7][7][7] = .WOOD;
-    chunk.blk[7][8][7] = .WOOD;
-    chunk.blk[7][9][7] = .WOOD;
-    chunk.blk[7][10][7] = .WOOD;
-    chunk.blk[7][11][7] = .WOOD;
-    chunk.blk[7][12][7] = .WOOD;
-    chunk.blk[7][13][7] = .WOOD;
-    chunk.blk[7][14][7] = .LEAF;
+    chunk.blk[7][7][7] = .Wood;
+    chunk.blk[7][8][7] = .Wood;
+    chunk.blk[7][9][7] = .Wood;
+    chunk.blk[7][10][7] = .Wood;
+    chunk.blk[7][11][7] = .Wood;
+    chunk.blk[7][12][7] = .Wood;
+    chunk.blk[7][13][7] = .Wood;
+    chunk.blk[7][14][7] = .Leaf;
 
-    chunk.blk[8][10][7] = .LEAF;
-    chunk.blk[8][11][7] = .LEAF;
-    chunk.blk[8][12][7] = .LEAF;
-    chunk.blk[8][13][7] = .LEAF;
+    chunk.blk[8][10][7] = .Leaf;
+    chunk.blk[8][11][7] = .Leaf;
+    chunk.blk[8][12][7] = .Leaf;
+    chunk.blk[8][13][7] = .Leaf;
 
-    chunk.blk[6][10][7] = .LEAF;
-    chunk.blk[6][11][7] = .LEAF;
-    chunk.blk[6][12][7] = .LEAF;
-    chunk.blk[6][13][7] = .LEAF;
+    chunk.blk[6][10][7] = .Leaf;
+    chunk.blk[6][11][7] = .Leaf;
+    chunk.blk[6][12][7] = .Leaf;
+    chunk.blk[6][13][7] = .Leaf;
 
-    chunk.blk[7][10][8] = .LEAF;
-    chunk.blk[7][11][8] = .LEAF;
-    chunk.blk[7][12][8] = .LEAF;
-    chunk.blk[7][13][8] = .LEAF;
+    chunk.blk[7][10][8] = .Leaf;
+    chunk.blk[7][11][8] = .Leaf;
+    chunk.blk[7][12][8] = .Leaf;
+    chunk.blk[7][13][8] = .Leaf;
 
-    chunk.blk[7][10][6] = .LEAF;
-    chunk.blk[7][11][6] = .LEAF;
-    chunk.blk[7][12][6] = .LEAF;
-    chunk.blk[7][13][6] = .LEAF;
+    chunk.blk[7][10][6] = .Leaf;
+    chunk.blk[7][11][6] = .Leaf;
+    chunk.blk[7][12][6] = .Leaf;
+    chunk.blk[7][13][6] = .Leaf;
 
     chunkRender = ChunkRender.init(chunk);
 
@@ -126,7 +126,9 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/grass-side.png",
         "assets/wood-top.png",
         "assets/wood-side.png",
-        "assets/leaf.png"
+        "assets/leaf.png",
+        "assets/coal-ore.png",
+        "assets/iron-ore.png",
     });
 
     std.log.warn("end app init", .{});
