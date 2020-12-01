@@ -40,6 +40,7 @@ pub const GL_LINEAR = c.GL_LINEAR;
 pub const GL_NEAREST = c.GL_NEAREST;
 pub const GL_RGBA = c.GL_RGBA;
 pub const GL_RGBA8 = c.GL_RGBA8;
+pub const GL_POLYGON_OFFSET_FILL = c.GL_POLYGON_OFFSET_FILL;
 
 pub const glCreateShader = c.glCreateShader;
 pub const glCompileShader = c.glCompileShader;
@@ -73,6 +74,7 @@ pub const glGenerateMipmap = c.glGenerateMipmap;
 pub const glTexStorage3D = c.glTexStorage3D;
 pub const glTexImage3D = c.glTexImage3D;
 pub const glTexSubImage3D = c.glTexSubImage3D;
+pub const glLineWidth = c.glLineWidth;
 
 pub fn glShaderSource(shader: c.GLuint, source: []const u8) void {
     c.glShaderSource(shader, 1, &source.ptr, &@intCast(c_int, source.len));

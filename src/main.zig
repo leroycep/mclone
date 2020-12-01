@@ -31,6 +31,7 @@ var cam_position = vec3f(10, -10, 10);
 
 // var chunk: Chunk = undefined;
 var chunkRender: ChunkRender = undefined;
+var cursor_vbo: platform.GLuint = undefined;
 
 var tilesetTex: platform.GLuint = undefined;
 
@@ -114,6 +115,7 @@ pub fn onInit(context: *platform.Context) !void {
     chunk.blk[7][13][6] = .Leaf;
 
     chunkRender = ChunkRender.init(chunk);
+    platform.glGenBuffers(1, &cursor_vbo);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
 
@@ -206,37 +208,47 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         },
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
-                const CX = core.chunk.CX;
-                const CY = core.chunk.CY;
-                const CZ = core.chunk.CZ;
-
-                const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
-                const start = cam_position;
-                const end = cam_position.addv(lookat.scale(5));
-
-                var iterations_left: usize = 100;
-                var voxel_iter = VoxelTraversal.init(start, end);
-                while (voxel_iter.next()) |voxel_pos| {
-                    if (iterations_left == 0) break;
-                    iterations_left -= 1;
-
-                    if (voxel_pos.x < 0 or voxel_pos.y < 0 or voxel_pos.z < 0) continue;
-                    if (voxel_pos.x >= CX or voxel_pos.y >= CY or voxel_pos.z >= CZ) continue;
-
-                    const chunk_pos = voxel_pos.intCast(u8);
-                    const block = chunkRender.chunk.blk[chunk_pos.x][chunk_pos.y][chunk_pos.z];
-                    if (block == .Air) continue;
-
-                    // Break block
-                    chunkRender.chunk.blk[chunk_pos.x][chunk_pos.y][chunk_pos.z] = .Air;
+                if (raycast(cam_position, camera_angle, 5)) |block| {
+                    chunkRender.chunk.blk[block.x][block.y][block.z] = .Air;
                     chunkRender.update();
-                    break;
                 }
             },
             else => {},
         },
         else => {},
     }
+}
+
+fn raycast(origin: Vec3f, angle: Vec2f, max_len: f32) ?math.Vec(3, u8) {
+    const CX = core.chunk.CX;
+    const CY = core.chunk.CY;
+    const CZ = core.chunk.CZ;
+
+    const lookat = vec3f(
+        std.math.sin(angle.x) * std.math.cos(angle.y),
+        std.math.sin(angle.y),
+        std.math.cos(angle.x) * std.math.cos(angle.y),
+    );
+    const start = origin;
+    const end = origin.addv(lookat.scale(max_len));
+
+    var iterations_left = @floatToInt(usize, max_len * 1.5);
+    var voxel_iter = VoxelTraversal.init(start, end);
+    while (voxel_iter.next()) |voxel_pos| {
+        if (iterations_left == 0) break;
+        iterations_left -= 1;
+
+        if (voxel_pos.x < 0 or voxel_pos.y < 0 or voxel_pos.z < 0) continue;
+        if (voxel_pos.x >= CX or voxel_pos.y >= CY or voxel_pos.z >= CZ) continue;
+
+        const chunk_pos = voxel_pos.intCast(u8);
+        const block = chunkRender.chunk.blk[chunk_pos.x][chunk_pos.y][chunk_pos.z];
+        if (block == .Air) continue;
+
+        // Break block
+        return chunk_pos;
+    }
+    return null;
 }
 
 const VoxelTraversal = struct {
@@ -307,15 +319,6 @@ const VoxelTraversal = struct {
     }
 };
 
-fn raycast(origin: Vec3f, dir: Vec3f) ?math.Vec3i {
-    var pos = origin.floatToInt(i32);
-    const step = math.Vec3i{
-        .x = if (dir.x > 0) 1 else -1,
-        .y = if (dir.y > 0) 1 else -1,
-        .z = if (dir.z > 0) 1 else -1,
-    };
-}
-
 pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     const move_speed = 10;
     const right_move = (input.right - input.left) * move_speed * @floatCast(f32, delta);
@@ -345,7 +348,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const screen_size = screen_size_int.intToFloat(f32);
 
     const aspect = screen_size.x / screen_size.y;
-    const zNear = 1;
+    const zNear = 0.01;
     const zFar = 2000;
     const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
 
@@ -359,6 +362,61 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glViewport(0, 0, screen_size_int.x, screen_size_int.y);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
-
     chunkRender.render(shaderProgram);
+
+    // Draw box around selected box
+    platform.glBindBuffer(platform.GL_ARRAY_BUFFER, cursor_vbo);
+    var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
+    platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
+    platform.glEnableVertexAttribArray(attribute_coord);
+
+    if (raycast(cam_position, camera_angle, 5)) |selected_int| {
+        const selected = selected_int.intToFloat(f32);
+        const box = [24][4]f32{
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
+        };
+
+        platform.glDisable(platform.GL_CULL_FACE);
+        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
+
+        platform.glLineWidth(10);
+        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+    }
+
+    const cross = [4][4]f32{
+        .{ -0.05, 0, -2, 14 },
+        .{ 0.05, 0, -2, 14 },
+        .{ 0, -0.05, -2, 14 },
+        .{ 0, 0.05, -2, 14 },
+    };
+
+    platform.glDisable(platform.GL_CULL_FACE);
+    platform.glDisable(platform.GL_DEPTH_TEST);
+    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.v);
+    platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
+    platform.glLineWidth(3);
+    platform.glDrawArrays(platform.GL_LINES, 0, cross.len);
 }
