@@ -131,6 +131,8 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/leaf.png",
         "assets/coal-ore.png",
         "assets/iron-ore.png",
+        "assets/white.png",
+        "assets/black.png",
     });
 
     std.log.warn("end app init", .{});
@@ -380,6 +382,9 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glClearColor(0.5, 0.5, 0.5, 1.0);
     platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
     platform.glViewport(0, 0, screen_size_int.x, screen_size_int.y);
+    platform.glEnable(platform.GL_POLYGON_OFFSET_FILL);
+
+    platform.glPolygonOffset(1, 1);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
     chunkRender.render(shaderProgram);
@@ -390,53 +395,53 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
     platform.glEnableVertexAttribArray(attribute_coord);
 
+    platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
+    platform.glDisable(platform.GL_CULL_FACE);
+
     if (raycast(cam_position, camera_angle, 5)) |selected_int| {
         const selected = selected_int.intToFloat(f32);
         const box = [24][4]f32{
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 14 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 14 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 0 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 0 },
         };
 
-        platform.glDisable(platform.GL_CULL_FACE);
         platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
 
-        platform.glLineWidth(10);
         platform.glDrawArrays(platform.GL_LINES, 0, 24);
     }
 
     const cross = [4][4]f32{
-        .{ -0.05, 0, -2, 14 },
-        .{ 0.05, 0, -2, 14 },
-        .{ 0, -0.05, -2, 14 },
-        .{ 0, 0.05, -2, 14 },
+        .{ -0.05, 0, -2, 9 },
+        .{ 0.05, 0, -2, 9 },
+        .{ 0, -0.05, -2, 9 },
+        .{ 0, 0.05, -2, 9 },
     };
 
-    platform.glDisable(platform.GL_CULL_FACE);
     platform.glDisable(platform.GL_DEPTH_TEST);
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.v);
     platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
-    platform.glLineWidth(3);
+
     platform.glDrawArrays(platform.GL_LINES, 0, cross.len);
 }

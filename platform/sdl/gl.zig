@@ -75,6 +75,7 @@ pub const glTexStorage3D = c.glTexStorage3D;
 pub const glTexImage3D = c.glTexImage3D;
 pub const glTexSubImage3D = c.glTexSubImage3D;
 pub const glLineWidth = c.glLineWidth;
+pub const glPolygonOffset = c.glPolygonOffset;
 
 pub fn glShaderSource(shader: c.GLuint, source: []const u8) void {
     c.glShaderSource(shader, 1, &source.ptr, &@intCast(c_int, source.len));
