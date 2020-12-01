@@ -12,4 +12,6 @@ void main(void) {
   } else {
     FragColor = texture(textureArray, vec3(fract(texcoord.x + texcoord.z), texcoord.y, texcoord.w)) * 0.85;
   }
+  if (FragColor.a < 0.5)
+    discard;
 }

@@ -82,6 +82,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .rendering = .{ .Multi = [6]u7{5, 5, 6, 6, 6, 6}},
     };
     descriptions[@enumToInt(BlockType.LEAF)] = .{
+        .is_opaque = false,
         .rendering = .{ .Single = 7},
     };
 
