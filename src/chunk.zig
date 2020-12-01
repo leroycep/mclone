@@ -78,6 +78,12 @@ const DESCRIPTIONS = comptime describe_blocks: {
     descriptions[@enumToInt(BlockType.GRASS)] = .{
         .rendering = .{ .Multi = [6]u7{3, 1, 4, 4, 4, 4}},
     };
+    descriptions[@enumToInt(BlockType.WOOD)] = .{
+        .rendering = .{ .Multi = [6]u7{5, 5, 6, 6, 6, 6}},
+    };
+    descriptions[@enumToInt(BlockType.LEAF)] = .{
+        .rendering = .{ .Single = 7},
+    };
 
     break :describe_blocks descriptions;
 };

@@ -9,6 +9,8 @@ pub const BlockType = enum(u8) {
     STONE,
     DIRT,
     GRASS,
+    WOOD,
+    LEAF,
 };
 
 pub const Chunk = struct {
