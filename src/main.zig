@@ -216,7 +216,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
-    const up = right.cross(lookat);
+    const up = vec3f(0, 1, 0);
 
     cam_position = cam_position.addv(forward.scale(forward_move));
     cam_position = cam_position.addv(right.scale(right_move));
