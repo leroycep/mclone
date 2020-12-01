@@ -233,7 +233,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
 
-    const screen_size = context.getScreenSize().intToFloat(f32);
+    const screen_size_int = context.getScreenSize();
+    const screen_size = screen_size_int.intToFloat(f32);
 
     const aspect = screen_size.x / screen_size.y;
     const zNear = 1;
@@ -247,7 +248,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     // Clear the screen
     platform.glClearColor(0.5, 0.5, 0.5, 1.0);
     platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
-    platform.glViewport(0, 0, 640, 480);
+    platform.glViewport(0, 0, screen_size_int.x, screen_size_int.y);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
 
