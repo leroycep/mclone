@@ -87,33 +87,33 @@ pub const ChunkRender = struct {
 
                     // View from negative y
                     if (yi == 0 or (yi > 0 and self.chunk.blk[xi][yi - 1][zi] == BlockType.AIR)) {
-                        vertex[i] = Byte4{x,      y,      z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y,      z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y,      z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x,      y,      z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y,      z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y,      z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y,      z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y,      z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y,      z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x,      y,      z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y,      z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
                     }
 
                     // View from positive y
                     if (yi == CY - 1 or (yi < CY - 1 and self.chunk.blk[xi][yi + 1][zi] == BlockType.AIR)) {
-                        vertex[i] = Byte4{x,      y + 1,  z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y + 1,  z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y + 1,  z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y + 1,  z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y + 1,  z,      @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y + 1,  z,      -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x,      y + 1,  z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x,      y + 1,  z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
-                        vertex[i] = Byte4{x + 1,  y + 1,  z + 1,  @bitCast(i8, blockType)};
+                        vertex[i] = Byte4{x + 1,  y + 1,  z + 1,  -@bitCast(i8, blockType)};
                         i += 1;
                     }
 

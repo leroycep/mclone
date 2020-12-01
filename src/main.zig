@@ -18,7 +18,7 @@ const ChunkRender = @import("./chunk.zig").ChunkRender;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
-const renderkit = @import("renderkit");
+const zigimg = @import("zigimg");
 
 const DEG_TO_RAD = std.math.pi / 180.0;
 
@@ -31,6 +31,8 @@ var cam_position = vec3f(10, -10, 10);
 
 // var chunk: Chunk = undefined;
 var chunkRender: ChunkRender = undefined;
+
+var dirtTex: platform.GLuint = undefined;
 
 const Input = struct {
     left: f32 = 0,
@@ -77,7 +79,47 @@ pub fn onInit(context: *platform.Context) !void {
 
     try context.setRelativeMouseMode(true);
 
+    dirtTex = try loadImage(context.alloc, "assets/dirt.png");
+
     std.log.warn("end app init", .{});
+}
+
+fn loadImage(alloc: *std.mem.Allocator, filepath: []const u8) !platform.GLuint {
+    const cwd = std.fs.cwd();
+    const image_contents = try cwd.readFileAlloc(alloc, filepath, 50000);
+    defer alloc.free(image_contents);
+
+    const load_res = try zigimg.Image.fromMemory(alloc, image_contents);
+    defer load_res.deinit();
+    if (load_res.pixels == null) return error.ImageLoadFailed;
+
+    var pixelData = try alloc.alloc(u8, load_res.width * load_res.height * 4);
+    defer alloc.free(pixelData);
+
+    var pixelsIterator = zigimg.color.ColorStorageIterator.init(&load_res.pixels.?);
+
+    var i: usize = 0;
+    while (pixelsIterator.next()) |color| : (i += 1) {
+        const integer_color = color.toIntegerColor8();
+        pixelData[i * 4 + 0] = integer_color.R;
+        pixelData[i * 4 + 1] = integer_color.G;
+        pixelData[i * 4 + 2] = integer_color.B;
+        pixelData[i * 4 + 3] = integer_color.A;
+    }
+
+    var texture: platform.GLuint = undefined;
+    platform.glGenTextures(1, &texture);
+    platform.glBindTexture(platform.GL_TEXTURE_2D, texture);
+
+    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_WRAP_S, platform.GL_REPEAT);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_WRAP_T, platform.GL_REPEAT);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_MIN_FILTER, platform.GL_NEAREST);
+    platform.glTexParameteri(platform.GL_TEXTURE_2D, platform.GL_TEXTURE_MAG_FILTER, platform.GL_NEAREST);
+
+    platform.glTexImage2D(platform.GL_TEXTURE_2D, 0, platform.GL_RGBA, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 0, platform.GL_RGBA, platform.GL_UNSIGNED_BYTE, pixelData.ptr);
+    platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
+
+    return texture;
 }
 
 pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
@@ -120,7 +162,6 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
 
-
     cam_position = cam_position.addv(forward.scale(forward_move));
     cam_position = cam_position.addv(right.scale(right_move));
     cam_position = cam_position.addv(up.scale(up_move));
@@ -149,6 +190,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glClearColor(0.5, 0.5, 0.5, 1.0);
     platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
     platform.glViewport(0, 0, 640, 480);
+
+    platform.glBindTexture(platform.GL_TEXTURE_2D, dirtTex);
 
     chunkRender.render(shaderProgram);
 }

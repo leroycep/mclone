@@ -1,3 +1,6 @@
 [submodule "zigmath"]
 	path = zigmath
 	url = https://github.com/leroycep/zigmath.git
+[submodule "zigimg"]
+	path = zigimg
+	url = https://github.com/mlarouche/zigimg.git

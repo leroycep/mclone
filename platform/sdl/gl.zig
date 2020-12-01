@@ -29,6 +29,15 @@ pub const GL_ONE_MINUS_SRC_ALPHA = c.GL_ONE_MINUS_SRC_ALPHA;
 pub const GL_DYNAMIC_DRAW = c.GL_DYNAMIC_DRAW;
 pub const GL_CULL_FACE = c.GL_CULL_FACE;
 pub const GL_BYTE = c.GL_BYTE;
+pub const GL_TEXTURE_2D = c.GL_TEXTURE_2D;
+pub const GL_TEXTURE_WRAP_S = c.GL_TEXTURE_WRAP_S;
+pub const GL_TEXTURE_WRAP_T = c.GL_TEXTURE_WRAP_T;
+pub const GL_REPEAT = c.GL_REPEAT;
+pub const GL_TEXTURE_MIN_FILTER = c.GL_TEXTURE_MIN_FILTER;
+pub const GL_TEXTURE_MAG_FILTER = c.GL_TEXTURE_MAG_FILTER;
+pub const GL_LINEAR = c.GL_LINEAR;
+pub const GL_NEAREST = c.GL_NEAREST;
+pub const GL_RGBA = c.GL_RGBA;
 
 pub const glCreateShader = c.glCreateShader;
 pub const glCompileShader = c.glCompileShader;
@@ -54,6 +63,11 @@ pub const glBlendFunc = c.glBlendFunc;
 pub const glDeleteShader = c.glDeleteShader;
 pub const glGenBuffers = c.glGenBuffers;
 pub const glDrawArrays = c.glDrawArrays;
+pub const glGenTextures = c.glGenTextures;
+pub const glBindTexture = c.glBindTexture;
+pub const glTexParameteri = c.glTexParameteri;
+pub const glTexImage2D = c.glTexImage2D;
+pub const glGenerateMipmap = c.glGenerateMipmap;
 
 pub fn glShaderSource(shader: c.GLuint, source: []const u8) void {
     c.glShaderSource(shader, 1, &source.ptr, &@intCast(c_int, source.len));

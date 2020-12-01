@@ -4,6 +4,12 @@ in highp vec4 texcoord;
 
 out highp vec4 FragColor;
 
+uniform sampler2D texture;
+
 void main(void) {
-  FragColor = vec4(texcoord.w / 128.0, texcoord.w / 256.0, texcoord.w / 512.0, 1.0);
+  if (texcoord.w < 0.0) {
+    FragColor = texture2D(texture, vec2(fract(texcoord.x), texcoord.z));
+  } else {
+    FragColor = texture2D(texture, vec2(fract(texcoord.x + texcoord.z), texcoord.y)) * 0.85;
+  }
 }
