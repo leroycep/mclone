@@ -61,6 +61,14 @@ pub const NonblockingStreamServer = struct {
             );
         }
 
+        const SOL_TCP = 6;
+        try os.setsockopt(
+            sockfd,
+            SOL_TCP,
+            os.TCP_NODELAY,
+            &mem.toBytes(@as(c_int, 1)),
+        );
+
         var socklen = address.getOsSockLen();
         try os.bind(sockfd, &address.any, socklen);
         try os.listen(sockfd, self.kernel_backlog);

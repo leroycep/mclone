@@ -162,7 +162,10 @@ fn disconnectClient(pollfds: *ArrayList(std.os.pollfd), clients: *AutoHashMap(st
 fn broadcast(clients: *AutoHashMap(std.os.fd_t, Client), message: []const u8) void {
     var clients_iter = clients.iterator();
     while (clients_iter.next()) |client| {
-        client.value.send(message) catch continue;
+        client.value.send(message) catch |e| {
+            std.log.warn("Error broadcasting to client: {}", .{e});
+            continue;
+        };
     }
 }
 

@@ -103,6 +103,16 @@ pub const FramesSocket = struct {
 
             const sock_flags = std.os.SOCK_STREAM | std.os.SOCK_NONBLOCK | std.os.SOCK_CLOEXEC;
             const sockfd = try std.os.socket(address.any.family, sock_flags, std.os.IPPROTO_TCP);
+
+            // Add to zig std lib
+            const SOL_TCP = 6;
+            try std.os.setsockopt(
+                sockfd,
+                SOL_TCP,
+                std.os.TCP_NODELAY,
+                &std.mem.toBytes(@as(c_int, 1)),
+            );
+
             const socket = Socket{ .handle = sockfd };
             errdefer socket.close();
 
@@ -127,23 +137,26 @@ pub const FramesSocket = struct {
     }
 
     pub fn update(this: *@This()) void {
-        if (this.status == .Closed) return;
-        if (this.frames.update(this.alloc, this.socket.reader())) |message_recv_opt| {
-            if (message_recv_opt) |message_recv| {
-                defer this.alloc.free(message_recv);
-                if (this.onmessage) |onmessage| {
-                    onmessage(this, this.user_data, message_recv);
+        while (this.status != .Closed) {
+            if (this.frames.update(this.alloc, this.socket.reader())) |message_recv_opt| {
+                if (message_recv_opt) |message_recv| {
+                    defer this.alloc.free(message_recv);
+                    if (this.onmessage) |onmessage| {
+                        onmessage(this, this.user_data, message_recv);
+                    }
+                } else {
+                    break;
                 }
-            }
-        } else |err| {
-            switch (err) {
-                error.SocketNotBound, error.ConnectionRefused, error.EndOfStream => this.status = .Closed,
-                else => {},
-            }
-            if (this.onerror) |onerror| {
-                onerror(this, this.user_data, err);
-            } else {
-                std.log.warn("{}", .{err});
+            } else |err| {
+                switch (err) {
+                    error.SocketNotBound, error.ConnectionRefused, error.EndOfStream => this.status = .Closed,
+                    else => {},
+                }
+                if (this.onerror) |onerror| {
+                    onerror(this, this.user_data, err);
+                } else {
+                    std.log.warn("{}", .{err});
+                }
             }
         }
     }

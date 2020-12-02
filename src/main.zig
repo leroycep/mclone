@@ -47,9 +47,11 @@ const Input = struct {
     down: f32 = 0,
 };
 var input = Input{};
+var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0) };
+var other_player_states: std.AutoHashMap(u32, core.player.State) = undefined;
 
 const Move = struct {
     time: f64,
@@ -153,6 +155,7 @@ pub fn onInit(context: *platform.Context) !void {
     socket.setOnMessage(onSocketMessage);
 
     moves = util.ArrayDeque(Move).init(context.alloc);
+    other_player_states = std.AutoHashMap(u32, core.player.State).init(context.alloc);
 
     std.log.warn("end app init", .{});
 }
@@ -213,9 +216,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .D => input.right = if (event == .KeyDown) 1 else 0,
             .SPACE => input.up = if (event == .KeyDown) 1 else 0,
             .LSHIFT => input.down = if (event == .KeyDown) 1 else 0,
+            .TAB => if (event == .KeyDown) {
+                mouse_captured = !mouse_captured;
+                try context.setRelativeMouseMode(mouse_captured);
+            },
             else => {},
         },
         .MouseMotion => |mouse_move| {
+            if (!mouse_captured) return;
             const MOUSE_SPEED = 0.005;
             camera_angle = camera_angle.subv(mouse_move.rel.intToFloat(f32).scale(MOUSE_SPEED));
             if (camera_angle.x < -std.math.pi)
@@ -240,6 +248,9 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
     }
 }
 
+var packet_received_num: usize = 0;
+var packet_sent_num: usize = 0;
+
 fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []const u8) void {
     var fbs = std.io.fixedBufferStream(message);
 
@@ -250,6 +261,9 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
         std.log.err("Could not read packet", .{});
         return;
     };
+
+    std.debug.warn("moves len: {} \t Packet received/sent: {}/{}\r", .{ moves.len(), packet_received_num, packet_sent_num });
+    packet_received_num +%= 1;
 
     switch (packet) {
         .Init => |init_data| client_id = init_data.id,
@@ -310,6 +324,10 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                     player_state.position = player_state.position.addv(difference.scale(0.1));
                 }
             }
+        } else {
+            // TODO: Integrate other clients with client side state prediction
+            const gop = other_player_states.getOrPut(update_data.id) catch return;
+            gop.entry.value = update_data.state;
         },
     }
 }
@@ -475,6 +493,9 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 
         try socket.send(serialized.items);
 
+        std.debug.warn("moves len: {} \t Packet received/sent: {}/{}\r", .{ moves.len(), packet_received_num, packet_sent_num });
+        packet_sent_num +%= 1;
+
         net.update_sockets();
     }
 }
@@ -515,6 +536,41 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
     platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
     platform.glEnableVertexAttribArray(attribute_coord);
+
+    var other_player_states_iter = other_player_states.iterator();
+    while (other_player_states_iter.next()) |entry| {
+        const pos = entry.value.position;
+        const box = [24][4]f32{
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
+        };
+
+        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
+
+        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+    }
 
     platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
     platform.glDisable(platform.GL_CULL_FACE);
