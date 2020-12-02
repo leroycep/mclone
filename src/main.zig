@@ -45,6 +45,7 @@ const Input = struct {
     backward: f32 = 0,
     up: f32 = 0,
     down: f32 = 0,
+    breaking: ?math.Vec(3, i32) = null,
 };
 var input = Input{};
 var mouse_captured: bool = true;
@@ -88,49 +89,8 @@ pub fn onInit(context: *platform.Context) !void {
     platform.glUseProgram(shaderProgram);
 
     // Set up VAO
-    var chunk = Chunk.init();
-    // chunk.fill(.DIRT);
-    chunk.layer(0, .Stone);
-    chunk.layer(1, .Stone);
-    chunk.layer(2, .Stone);
-    chunk.layer(3, .Dirt);
-    chunk.layer(4, .Dirt);
-    chunk.layer(5, .Dirt);
-    chunk.layer(6, .Grass);
-    chunk.blk[0][1][0] = .IronOre;
-    chunk.blk[0][2][0] = .CoalOre;
-    chunk.blk[0][3][0] = .Air;
+    chunkRender = ChunkRender.init(Chunk.init());
 
-    chunk.blk[7][7][7] = .Wood;
-    chunk.blk[7][8][7] = .Wood;
-    chunk.blk[7][9][7] = .Wood;
-    chunk.blk[7][10][7] = .Wood;
-    chunk.blk[7][11][7] = .Wood;
-    chunk.blk[7][12][7] = .Wood;
-    chunk.blk[7][13][7] = .Wood;
-    chunk.blk[7][14][7] = .Leaf;
-
-    chunk.blk[8][10][7] = .Leaf;
-    chunk.blk[8][11][7] = .Leaf;
-    chunk.blk[8][12][7] = .Leaf;
-    chunk.blk[8][13][7] = .Leaf;
-
-    chunk.blk[6][10][7] = .Leaf;
-    chunk.blk[6][11][7] = .Leaf;
-    chunk.blk[6][12][7] = .Leaf;
-    chunk.blk[6][13][7] = .Leaf;
-
-    chunk.blk[7][10][8] = .Leaf;
-    chunk.blk[7][11][8] = .Leaf;
-    chunk.blk[7][12][8] = .Leaf;
-    chunk.blk[7][13][8] = .Leaf;
-
-    chunk.blk[7][10][6] = .Leaf;
-    chunk.blk[7][11][6] = .Leaf;
-    chunk.blk[7][12][6] = .Leaf;
-    chunk.blk[7][13][6] = .Leaf;
-
-    chunkRender = ChunkRender.init(chunk);
     platform.glGenBuffers(1, &cursor_vbo);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
@@ -237,9 +197,9 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         },
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
-                if (raycast(player_state.position, camera_angle, 5)) |block| {
-                    chunkRender.chunk.blk[block.x][block.y][block.z] = .Air;
-                    chunkRender.update();
+                if (chunkRender.chunk.raycast(player_state.position, camera_angle, 5)) |block_pos| {
+                    input.breaking = block_pos.intCast(i32);
+                    //chunkRender.chunk.set(block.x, block.y, block.z, .Air);
                 }
             },
             else => {},
@@ -329,138 +289,12 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             const gop = other_player_states.getOrPut(update_data.id) catch return;
             gop.entry.value = update_data.state;
         },
+        .ChunkUpdate => |chunk_update| {
+            chunkRender.chunk = chunk_update.chunk;
+            chunkRender.update();
+        },
     }
 }
-
-fn raycast(origin: Vec3f, angle: Vec2f, max_len: f32) ?math.Vec(3, u8) {
-    const CX = core.chunk.CX;
-    const CY = core.chunk.CY;
-    const CZ = core.chunk.CZ;
-
-    const lookat = vec3f(
-        std.math.sin(angle.x) * std.math.cos(angle.y),
-        std.math.sin(angle.y),
-        std.math.cos(angle.x) * std.math.cos(angle.y),
-    );
-    const start = origin;
-    const end = origin.addv(lookat.scale(max_len));
-
-    var iterations_left = @floatToInt(usize, max_len * 1.5);
-    var voxel_iter = VoxelTraversal.init(start, end);
-    while (voxel_iter.next()) |voxel_pos| {
-        if (iterations_left == 0) break;
-        iterations_left -= 1;
-
-        if (voxel_pos.x < 0 or voxel_pos.y < 0 or voxel_pos.z < 0) continue;
-        if (voxel_pos.x >= CX or voxel_pos.y >= CY or voxel_pos.z >= CZ) continue;
-
-        const chunk_pos = voxel_pos.intCast(u8);
-        const block = chunkRender.chunk.blk[chunk_pos.x][chunk_pos.y][chunk_pos.z];
-        if (block == .Air) continue;
-
-        // Break block
-        return chunk_pos;
-    }
-    return null;
-}
-
-const VoxelTraversal = struct {
-    current_voxel: math.Vec(3, i32),
-    last_voxel: math.Vec(3, i32),
-    step: math.Vec(3, i32),
-    tMax: Vec3f,
-    tDelta: Vec3f,
-    neg_diff: ?math.Vec(3, i32),
-    returned_first: bool = false,
-    returned_last_voxel: bool = false,
-
-    pub fn init(start: Vec3f, end: Vec3f) @This() {
-        var current_voxel = start.floor().floatToInt(i32);
-        const last_voxel = end.floor().floatToInt(i32);
-        const direction = end.subv(start);
-        const step = math.Vec(3, i32){
-            .x = if (direction.x >= 0) 1 else -1,
-            .y = if (direction.y >= 0) 1 else -1,
-            .z = if (direction.z >= 0) 1 else -1,
-        };
-        const next_voxel_boundary = math.Vec3f{
-            .x = @intToFloat(f32, current_voxel.x + step.x),
-            .y = @intToFloat(f32, current_voxel.y + step.y),
-            .z = @intToFloat(f32, current_voxel.z + step.z),
-        };
-
-        var diff = math.Vec(3, i32).init(0, 0, 0);
-        var neg_ray = false;
-        if (current_voxel.x != last_voxel.x and direction.x < 0) {
-            diff.x -= 1;
-            neg_ray = true;
-        }
-        if (current_voxel.y != last_voxel.y and direction.y < 0) {
-            diff.y -= 1;
-            neg_ray = true;
-        }
-        if (current_voxel.z != last_voxel.z and direction.z < 0) {
-            diff.z -= 1;
-            neg_ray = true;
-        }
-
-        return @This(){
-            .current_voxel = current_voxel,
-            .last_voxel = last_voxel,
-            .step = step,
-            .tMax = math.Vec3f{
-                .x = if (direction.x != 0) (next_voxel_boundary.x - start.x) / direction.x else std.math.f32_max,
-                .y = if (direction.y != 0) (next_voxel_boundary.y - start.y) / direction.y else std.math.f32_max,
-                .z = if (direction.z != 0) (next_voxel_boundary.z - start.z) / direction.z else std.math.f32_max,
-            },
-            .tDelta = math.Vec3f{
-                .x = if (direction.x != 0) 1.0 / direction.x * @intToFloat(f32, step.x) else std.math.f32_max,
-                .y = if (direction.y != 0) 1.0 / direction.y * @intToFloat(f32, step.y) else std.math.f32_max,
-                .z = if (direction.z != 0) 1.0 / direction.z * @intToFloat(f32, step.z) else std.math.f32_max,
-            },
-            .neg_diff = if (neg_ray) diff else null,
-        };
-    }
-
-    pub fn next(this: *@This()) ?math.Vec(3, i32) {
-        if (!this.returned_first) {
-            this.returned_first = true;
-            return this.current_voxel;
-        }
-        if (this.neg_diff) |diff| {
-            const pos = this.current_voxel;
-            this.current_voxel = this.current_voxel.addv(diff);
-            this.neg_diff = null;
-            return pos;
-        }
-        if (this.last_voxel.eql(this.current_voxel)) {
-            if (this.returned_last_voxel) {
-                return null;
-            } else {
-                this.returned_last_voxel = true;
-                return this.last_voxel;
-            }
-        }
-        if (this.tMax.x < this.tMax.y) {
-            if (this.tMax.x < this.tMax.z) {
-                this.current_voxel.x += this.step.x;
-                this.tMax.x += this.tDelta.x;
-            } else {
-                this.current_voxel.z += this.step.z;
-                this.tMax.z += this.tDelta.z;
-            }
-        } else {
-            if (this.tMax.y < this.tMax.z) {
-                this.current_voxel.y += this.step.y;
-                this.tMax.y += this.tDelta.y;
-            } else {
-                this.current_voxel.z += this.step.z;
-                this.tMax.z += this.tDelta.z;
-            }
-        }
-        return this.current_voxel;
-    }
-};
 
 pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     const player_input = core.player.Input{
@@ -468,6 +302,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .jump = input.up > 0,
         .crouch = input.down > 0,
         .lookAngle = camera_angle,
+        .breaking = input.breaking,
     };
 
     player_state.update(current_time, delta, player_input);
@@ -498,6 +333,8 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 
         net.update_sockets();
     }
+
+    input.breaking = null;
 }
 
 pub fn render(context: *platform.Context, alpha: f64) !void {
@@ -575,7 +412,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
     platform.glDisable(platform.GL_CULL_FACE);
 
-    if (raycast(player_state.position, camera_angle, 5)) |selected_int| {
+    if (chunkRender.chunk.raycast(player_state.position, camera_angle, 5)) |selected_int| {
         const selected = selected_int.intToFloat(f32);
         const box = [24][4]f32{
             .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },

@@ -45,6 +45,48 @@ pub fn main() !void {
         .revents = undefined,
     });
 
+    // Generate world
+    var chunk = core.chunk.Chunk.init();
+    chunk.layer(0, .Stone);
+    chunk.layer(1, .Stone);
+    chunk.layer(2, .Stone);
+    chunk.layer(3, .Dirt);
+    chunk.layer(4, .Dirt);
+    chunk.layer(5, .Dirt);
+    chunk.layer(6, .Grass);
+    chunk.blk[0][1][0] = .IronOre;
+    chunk.blk[0][2][0] = .CoalOre;
+    chunk.blk[0][3][0] = .Air;
+
+    chunk.blk[7][7][7] = .Wood;
+    chunk.blk[7][8][7] = .Wood;
+    chunk.blk[7][9][7] = .Wood;
+    chunk.blk[7][10][7] = .Wood;
+    chunk.blk[7][11][7] = .Wood;
+    chunk.blk[7][12][7] = .Wood;
+    chunk.blk[7][13][7] = .Wood;
+    chunk.blk[7][14][7] = .Leaf;
+
+    chunk.blk[8][10][7] = .Leaf;
+    chunk.blk[8][11][7] = .Leaf;
+    chunk.blk[8][12][7] = .Leaf;
+    chunk.blk[8][13][7] = .Leaf;
+
+    chunk.blk[6][10][7] = .Leaf;
+    chunk.blk[6][11][7] = .Leaf;
+    chunk.blk[6][12][7] = .Leaf;
+    chunk.blk[6][13][7] = .Leaf;
+
+    chunk.blk[7][10][8] = .Leaf;
+    chunk.blk[7][11][8] = .Leaf;
+    chunk.blk[7][12][8] = .Leaf;
+    chunk.blk[7][13][8] = .Leaf;
+
+    chunk.blk[7][10][6] = .Leaf;
+    chunk.blk[7][11][6] = .Leaf;
+    chunk.blk[7][12][6] = .Leaf;
+    chunk.blk[7][13][6] = .Leaf;
+
     const max_players = 24;
     var num_players: usize = 0;
 
@@ -93,6 +135,9 @@ pub fn main() !void {
                 try clients.put(new_connection.file.handle, client);
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
+                try client.sendPacket(ServerDatagram{
+                    .ChunkUpdate = .{ .chunk = chunk },
+                });
                 broadcastPacket(alloc, &clients, ServerDatagram{
                     .Update = .{
                         .id = client.id,
@@ -136,6 +181,13 @@ pub fn main() !void {
                                         .state = client.state,
                                     },
                                 });
+
+                                if (update.input.breaking) |block_pos| {
+                                    chunk.set(block_pos.x, block_pos.y, block_pos.z, .Air);
+                                    broadcastPacket(alloc, &clients, ServerDatagram{
+                                        .ChunkUpdate = .{ .chunk = chunk },
+                                    });
+                                }
                             },
                         }
                     }

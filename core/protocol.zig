@@ -1,7 +1,9 @@
 const std = @import("std");
+const core = @import("./core.zig");
 const player = @import("./core.zig").player;
 const bare = @import("bare");
 const Allocator = std.mem.Allocator;
+const math = @import("math");
 
 // Export the reader and writer types that both sides will need
 pub const Reader = bare.Reader;
@@ -26,6 +28,10 @@ pub const ServerDatagram = union(enum) {
         id: u32,
         time: f64,
         state: player.State,
+    },
+    // TODO: Move this to reliable packet once that distinction exists
+    ChunkUpdate: struct {
+        chunk: core.chunk.Chunk,
     },
 };
 

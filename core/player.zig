@@ -14,6 +14,8 @@ pub const Input = struct {
     crouch: bool,
     /// The angle that the player looking
     lookAngle: Vec2f,
+    /// The block that the player is breaking
+    breaking: ?math.Vec(3, i32),
 };
 
 pub const State = struct {
