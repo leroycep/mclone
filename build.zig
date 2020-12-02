@@ -20,10 +20,14 @@ const UTIL = std.build.Pkg{
     .path = "./util/util.zig",
     .dependencies = &[_]Pkg{ MATH },
 };
+const BARE = std.build.Pkg{
+    .name = "bare",
+    .path = "./zig-bare/src/bare.zig",
+};
 const CORE = std.build.Pkg{
     .name = "core",
     .path = "./core/core.zig",
-    .dependencies = &[_]Pkg{ UTIL, MATH },
+    .dependencies = &[_]Pkg{ UTIL, MATH, BARE },
 };
 
 pub fn build(b: *Builder) void {

@@ -4,3 +4,6 @@
 [submodule "zigimg"]
 	path = zigimg
 	url = https://github.com/mlarouche/zigimg.git
+[submodule "zig-bare"]
+	path = zig-bare
+	url = https://git.sr.ht/~alva/zig-bare

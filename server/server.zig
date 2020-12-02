@@ -7,6 +7,8 @@ const Address = std.net.Address;
 const NonblockingStreamServer = @import("./nonblocking_stream_server.zig").NonblockingStreamServer;
 const core = @import("core");
 const protocol = core.protocol;
+const ClientDatagram = protocol.ClientDatagram;
+const ServerDatagram = protocol.ServerDatagram;
 
 const MAX_CLIENTS = 2;
 
@@ -15,7 +17,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const alloc = &gpa.allocator;
 
-    const localhost = try Address.parseIp("127.0.0.1", 48836);
+    const localhost = try Address.parseIp("127.0.0.1", 5949);
 
     var server = NonblockingStreamServer.init(.{ .reuse_address = true });
     defer server.deinit();
@@ -43,12 +45,8 @@ pub fn main() !void {
         .revents = undefined,
     });
 
-    var game = core.game.Game.init(alloc);
-
-    var unassigned_colors = ArrayList(core.piece.Piece.Color).init(alloc);
-    defer unassigned_colors.deinit();
-    try unassigned_colors.append(.Black);
-    try unassigned_colors.append(.White);
+    const max_players = 24;
+    var num_players: usize = 0;
 
     var running = true;
     var next_id: u32 = 0;
@@ -68,7 +66,7 @@ pub fn main() !void {
                     else => |oe| return oe,
                 };
 
-                if (unassigned_colors.items.len == 0) {
+                if (num_players >= max_players) {
                     new_connection.file.close();
                     continue;
                 }
@@ -82,39 +80,61 @@ pub fn main() !void {
                 var client = Client{
                     .alloc = alloc,
                     .connection = new_connection,
-                    .color = unassigned_colors.pop(),
+                    .id = next_id,
+                    .currentTime = 0,
+                    .state = .{
+                        .position = .{ .x = 0, .y = 0, .z = 0 },
+                        .lookAngle = .{ .x = 0, .y = 0 },
+                    },
                 };
+                next_id += 1;
+                num_players += 1;
+
                 try clients.put(new_connection.file.handle, client);
 
-                try client.sendPacket(protocol.ServerPacket{ .Init = .{ .color = client.color } });
-                try client.sendPacket(protocol.ServerPacket{ .BoardUpdate = game.board.serialize() });
-                try client.sendPacket(protocol.ServerPacket{ .TurnChange = game.currentPlayer });
+                try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
 
                 std.log.info("{} connected", .{new_connection.address});
             } else if (clients.get(pollfd.fd)) |*client| {
-                if (client.handle()) |json_data_opt| {
-                    const json_data = json_data_opt orelse continue;
-                    defer alloc.free(json_data);
+                if (client.handle()) |bare_data_opt| {
+                    const bare_data = bare_data_opt orelse continue;
+                    defer alloc.free(bare_data);
 
-                    std.log.debug("{}: {}", .{ client.connection.address, json_data });
+                    var fbs = std.io.fixedBufferStream(bare_data);
 
-                    const packet = core.protocol.ClientPacket.parse(json_data) catch |err| switch (err) {
+                    var reader = core.protocol.Reader.init(alloc);
+                    defer reader.deinit();
+
+                    const packet = reader.read(ClientDatagram, fbs.reader()) catch |err| switch (err) {
                         else => |other_err| return other_err,
                     };
 
-                    switch (packet) {
-                        .MovePiece => |move_piece| {
-                            try game.move(move_piece.startPos, move_piece.endPos);
-                            broadcastPacket(alloc, &clients, protocol.ServerPacket{ .BoardUpdate = game.board.serialize() });
-                            broadcastPacket(alloc, &clients, protocol.ServerPacket{ .TurnChange = game.currentPlayer });
-                        },
-                    }
+                    handle_packet: {
+                        switch (packet) {
+                            .Update => |update| {
+                                if (update.time < client.currentTime) {
+                                    break :handle_packet;
+                                }
 
-                    std.log.debug("{} parsed: {}", .{ client.connection.address, packet });
+                                const deltaTime = update.time - client.currentTime;
+
+                                client.state.update(update.time, deltaTime, update.input);
+                                client.currentTime = update.time;
+
+                                broadcastPacket(alloc, &clients, ServerDatagram{
+                                    .Update = .{
+                                        .id = client.id,
+                                        .time = client.currentTime,
+                                        .state = client.state,
+                                    },
+                                });
+                            },
+                        }
+                    }
                 } else |err| switch (err) {
                     error.EndOfStream => {
                         disconnectClient(&pollfds, &clients, pollfd_idx);
-                        try unassigned_colors.append(client.color);
+                        num_players -= 1;
                         break;
                     },
                     else => |other_err| return other_err,
@@ -139,18 +159,22 @@ fn broadcast(clients: *AutoHashMap(std.os.fd_t, Client), message: []const u8) vo
 }
 
 fn broadcastPacket(alloc: *Allocator, clients: *AutoHashMap(std.os.fd_t, Client), data: anytype) void {
-    var json = ArrayList(u8).init(alloc);
-    defer json.deinit();
-    data.stringify(json.writer()) catch return;
+    var serialized = ArrayList(u8).init(alloc);
+    defer serialized.deinit();
 
-    broadcast(clients, json.items);
+    core.protocol.Writer.init().write(data, serialized.writer()) catch return;
+
+    broadcast(clients, serialized.items);
 }
 
 const Client = struct {
     alloc: *Allocator,
     connection: NonblockingStreamServer.Connection,
     frames: protocol.Frames = protocol.Frames.init(),
-    color: core.piece.Piece.Color,
+
+    id: u32,
+    currentTime: f64,
+    state: core.player.State,
 
     pub fn handle(this: *@This()) !?[]u8 {
         const reader = this.connection.file.reader();
@@ -164,10 +188,11 @@ const Client = struct {
     }
 
     pub fn sendPacket(this: *@This(), data: anytype) !void {
-        var json = ArrayList(u8).init(this.alloc);
-        defer json.deinit();
-        try data.stringify(json.writer());
+        var serialized = ArrayList(u8).init(this.alloc);
+        defer serialized.deinit();
 
-        try this.send(json.items);
+        try core.protocol.Writer.init().write(data, serialized.writer());
+
+        try this.send(serialized.items);
     }
 };
