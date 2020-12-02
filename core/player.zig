@@ -1,6 +1,7 @@
 const std = @import("std");
 const math = @import("math");
 const Vec2f = math.Vec2f;
+const vec2f = math.vec2f;
 const Vec3f = math.Vec3f;
 const vec3f = math.vec3f;
 
@@ -23,19 +24,18 @@ pub const State = struct {
         this.lookAngle = input.lookAngle;
 
         const speed = std.math.clamp(input.move.magnitude(), 0, 1);
-        const move = input.move.normalize().scale(MOVE_SPEED * speed * @floatCast(f32, deltaTime));
+        const move = if (speed > 0) input.move.normalize().scale(MOVE_SPEED * speed * @floatCast(f32, deltaTime)) else vec2f(0, 0);
 
         var vertical_move: f32 = 0;
         if (input.jump) vertical_move += MOVE_SPEED * @floatCast(f32, deltaTime);
         if (input.crouch) vertical_move -= MOVE_SPEED * @floatCast(f32, deltaTime);
-        
+
         const forward = vec3f(std.math.sin(this.lookAngle.x), 0, std.math.cos(this.lookAngle.x));
         const right = vec3f(-std.math.cos(this.lookAngle.x), 0, std.math.sin(this.lookAngle.x));
         const lookat = vec3f(std.math.sin(this.lookAngle.x) * std.math.cos(this.lookAngle.y), std.math.sin(this.lookAngle.y), std.math.cos(this.lookAngle.x) * std.math.cos(this.lookAngle.y));
         const up = vec3f(0, 1, 0);
 
-        this.position = this.position.addv(forward.scale(move.y));
-        this.position = this.position.addv(right.scale(move.x));
-        this.position = this.position.addv(up.scale(vertical_move));
+        const new_pos = this.position.addv(forward.scale(move.y)).addv(right.scale(move.x)).addv(up.scale(vertical_move));
+        this.position = new_pos;
     }
 };

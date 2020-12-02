@@ -19,6 +19,7 @@ const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
 const zigimg = @import("zigimg");
+const net = platform.net;
 
 const DEG_TO_RAD = std.math.pi / 180.0;
 
@@ -27,13 +28,15 @@ const FRAG_CODE = @embedFile("glescraft.frag");
 
 var shaderProgram: platform.GLuint = undefined;
 var projectionMatrixUniform: platform.GLint = undefined;
-var cam_position = vec3f(10, -10, 10);
 
 // var chunk: Chunk = undefined;
 var chunkRender: ChunkRender = undefined;
 var cursor_vbo: platform.GLuint = undefined;
 
 var tilesetTex: platform.GLuint = undefined;
+
+var socket: *net.FramesSocket = undefined;
+var client_id: u32 = undefined;
 
 const Input = struct {
     left: f32 = 0,
@@ -45,6 +48,8 @@ const Input = struct {
 };
 var input = Input{};
 var camera_angle = vec2f(0, 0);
+
+var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0) };
 
 pub fn main() !void {
     try platform.run(.{
@@ -135,6 +140,9 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/black.png",
     });
 
+    socket = try net.FramesSocket.init(context.alloc, "127.0.0.1:5949", 0);
+    socket.setOnMessage(onSocketMessage);
+
     std.log.warn("end app init", .{});
 }
 
@@ -210,7 +218,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         },
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
-                if (raycast(cam_position, camera_angle, 5)) |block| {
+                if (raycast(player_state.position, camera_angle, 5)) |block| {
                     chunkRender.chunk.blk[block.x][block.y][block.z] = .Air;
                     chunkRender.update();
                 }
@@ -218,6 +226,35 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             else => {},
         },
         else => {},
+    }
+}
+
+fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []const u8) void {
+    var fbs = std.io.fixedBufferStream(message);
+
+    var reader = core.protocol.Reader.init(socket.alloc);
+    defer reader.deinit();
+
+    const packet = reader.read(core.protocol.ServerDatagram, fbs.reader()) catch |err| {
+        std.log.err("Could not read packet", .{});
+        return;
+    };
+
+    switch (packet) {
+        .Init => |init_data| client_id = init_data.id,
+        .Update => |update_data| if (update_data.id == client_id) {
+            const difference = update_data.state.position.subv(player_state.position);
+
+            const distance = difference.magnitude();
+
+            if (distance > 2.0) {
+                player_state.position = update_data.state.position;
+            } else if (distance > 0.1) {
+                player_state.position = player_state.position.addv(difference.scale(0.1));
+            }
+
+            // TODO: Handle orientation changes
+        },
     }
 }
 
@@ -313,14 +350,14 @@ const VoxelTraversal = struct {
 
     pub fn next(this: *@This()) ?math.Vec(3, i32) {
         if (!this.returned_first) {
-            if (this.neg_diff) |diff| {
-                const pos = this.current_voxel;
-                this.current_voxel = this.current_voxel.addv(diff);
-                this.neg_diff = null;
-                return pos;
-            }
             this.returned_first = true;
             return this.current_voxel;
+        }
+        if (this.neg_diff) |diff| {
+            const pos = this.current_voxel;
+            this.current_voxel = this.current_voxel.addv(diff);
+            this.neg_diff = null;
+            return pos;
         }
         if (this.last_voxel.eql(this.current_voxel)) {
             if (this.returned_last_voxel) {
@@ -352,20 +389,32 @@ const VoxelTraversal = struct {
 };
 
 pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
-    const move_speed = 10;
-    const right_move = (input.right - input.left) * move_speed * @floatCast(f32, delta);
-    const forward_move = (input.forward - input.backward) * move_speed * @floatCast(f32, delta);
-    const up_move = (input.up - input.down) * move_speed * @floatCast(f32, delta);
+    const player_input = core.player.Input{
+        .move = vec2f(input.right - input.left, input.forward - input.backward),
+        .jump = input.up > 0,
+        .crouch = input.down > 0,
+        .lookAngle = camera_angle,
+    };
 
-    // TODO: centralize forward/right vector calculations
-    const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
-    const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
-    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
-    const up = vec3f(0, 1, 0);
+    player_state.update(current_time, delta, player_input);
 
-    cam_position = cam_position.addv(forward.scale(forward_move));
-    cam_position = cam_position.addv(right.scale(right_move));
-    cam_position = cam_position.addv(up.scale(up_move));
+    {
+        const packet = core.protocol.ClientDatagram{
+            .Update = .{
+                .time = current_time,
+                .input = player_input,
+            },
+        };
+
+        var serialized = ArrayList(u8).init(context.alloc);
+        defer serialized.deinit();
+
+        try core.protocol.Writer.init().write(packet, serialized.writer());
+
+        try socket.send(serialized.items);
+
+        net.update_sockets();
+    }
 }
 
 pub fn render(context: *platform.Context, alpha: f64) !void {
@@ -381,10 +430,10 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const aspect = screen_size.x / screen_size.y;
     const zNear = 0.01;
-    const zFar = 2000;
+    const zFar = 1000;
     const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
 
-    const projection = perspective.mul(Mat4f.lookAt(cam_position, cam_position.addv(lookat), up));
+    const projection = perspective.mul(Mat4f.lookAt(player_state.position, player_state.position.addv(lookat), up));
 
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
 
@@ -408,7 +457,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
     platform.glDisable(platform.GL_CULL_FACE);
 
-    if (raycast(cam_position, camera_angle, 5)) |selected_int| {
+    if (raycast(player_state.position, camera_angle, 5)) |selected_int| {
         const selected = selected_int.intToFloat(f32);
         const box = [24][4]f32{
             .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },

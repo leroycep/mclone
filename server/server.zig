@@ -93,9 +93,17 @@ pub fn main() !void {
                 try clients.put(new_connection.file.handle, client);
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
+                broadcastPacket(alloc, &clients, ServerDatagram{
+                    .Update = .{
+                        .id = client.id,
+                        .time = client.currentTime,
+                        .state = client.state,
+                    },
+                });
 
                 std.log.info("{} connected", .{new_connection.address});
-            } else if (clients.get(pollfd.fd)) |*client| {
+            } else if (clients.getEntry(pollfd.fd)) |client_entry| {
+                const client = &client_entry.value;
                 if (client.handle()) |bare_data_opt| {
                     const bare_data = bare_data_opt orelse continue;
                     defer alloc.free(bare_data);
@@ -132,7 +140,7 @@ pub fn main() !void {
                         }
                     }
                 } else |err| switch (err) {
-                    error.EndOfStream => {
+                    error.EndOfStream, error.ConnectionResetByPeer => {
                         disconnectClient(&pollfds, &clients, pollfd_idx);
                         num_players -= 1;
                         break;

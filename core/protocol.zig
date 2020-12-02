@@ -48,6 +48,10 @@ pub const Frames = union(enum) {
                         error.WouldBlock => return null,
                         else => |other_err| return other_err,
                     };
+                    if (n > 10000) {
+                        std.log.err("Message claims to be {} bytes long", .{n});
+                        return error.MessageIsToLong;
+                    }
                     this.* = .{
                         .WaitingForData = .{
                             .buffer = try alloc.alloc(u8, n),
@@ -71,4 +75,3 @@ pub const Frames = union(enum) {
         }
     }
 };
-
