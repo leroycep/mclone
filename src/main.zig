@@ -51,6 +51,15 @@ var camera_angle = vec2f(0, 0);
 
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0) };
 
+const Move = struct {
+    time: f64,
+    input: core.player.Input,
+    state: core.player.State,
+};
+
+// TODO: Make this a fixed size so that only so much lag will be tolerated
+var moves: util.ArrayDeque(Move) = undefined;
+
 pub fn main() !void {
     try platform.run(.{
         .init = onInit,
@@ -142,6 +151,8 @@ pub fn onInit(context: *platform.Context) !void {
 
     socket = try net.FramesSocket.init(context.alloc, "127.0.0.1:5949", 0);
     socket.setOnMessage(onSocketMessage);
+
+    moves = util.ArrayDeque(Move).init(context.alloc);
 
     std.log.warn("end app init", .{});
 }
@@ -243,17 +254,62 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
     switch (packet) {
         .Init => |init_data| client_id = init_data.id,
         .Update => |update_data| if (update_data.id == client_id) {
-            const difference = update_data.state.position.subv(player_state.position);
-
-            const distance = difference.magnitude();
-
-            if (distance > 2.0) {
-                player_state.position = update_data.state.position;
-            } else if (distance > 0.1) {
-                player_state.position = player_state.position.addv(difference.scale(0.1));
+            while (true) {
+                if (moves.len() == 0) {
+                    // There is nothing in the move buffer, just set the state to what the server sent
+                    player_state = update_data.state;
+                    return;
+                }
+                const move = moves.idx(0).?;
+                if (update_data.time > move.time) {
+                    moves.discard_front(1);
+                } else {
+                    break;
+                }
             }
 
-            // TODO: Handle orientation changes
+            const move_at_time = moves.pop_front().?;
+            if (move_at_time.time > update_data.time) {
+                // We have a newer packet from the server, so we can ignore this one
+                return;
+            }
+            const state_then = move_at_time.state;
+
+            var should_rewind_and_replay = false;
+
+            {
+                const difference = update_data.state.position.subv(state_then.position);
+                const distance = difference.magnitude();
+                if (distance > 2.0) should_rewind_and_replay = true;
+            }
+
+            // TODO: Check for orientation changes
+
+            if (should_rewind_and_replay) {
+                var corrected_state = update_data.state;
+
+                var prev_time = update_data.time;
+                var idx: usize = 0;
+                while (idx < moves.len()) : (idx += 1) {
+                    const move_to_replay = moves.idxMut(idx).?;
+                    const delta_time = prev_time - move_to_replay.time;
+
+                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input);
+                    move_to_replay.state = corrected_state;
+
+                    prev_time = move_to_replay.time;
+                }
+
+                // Apply corrected state
+                const difference = corrected_state.position.subv(player_state.position);
+                const distance = difference.magnitude();
+
+                if (distance > 2.0) {
+                    player_state.position = corrected_state.position;
+                } else if (distance > 0.1) {
+                    player_state.position = player_state.position.addv(difference.scale(0.1));
+                }
+            }
         },
     }
 }
@@ -397,6 +453,12 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     };
 
     player_state.update(current_time, delta, player_input);
+
+    try moves.push_back(.{
+        .time = current_time,
+        .input = player_input,
+        .state = player_state,
+    });
 
     {
         const packet = core.protocol.ClientDatagram{
