@@ -222,7 +222,6 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
         return;
     };
 
-    std.debug.warn("moves len: {} \t Packet received/sent: {}/{}\r", .{ moves.len(), packet_received_num, packet_sent_num });
     packet_received_num +%= 1;
 
     switch (packet) {
@@ -333,7 +332,6 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 
         try socket.send(serialized.items);
 
-        std.debug.warn("moves len: {} \t Packet received/sent: {}/{}\r", .{ moves.len(), packet_received_num, packet_sent_num });
         packet_sent_num +%= 1;
 
         net.update_sockets();
