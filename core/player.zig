@@ -85,6 +85,77 @@ pub const State = struct {
 
         //const collisionX = math.AABB(3, f32).init(new_pos, vec3f(1, 0.5, 0.5));
         //const collisionZ = math.AABB(3, f32).init(new_pos, vec3f(1, 0.5, 0.5));
+        // Check for horizontal collisions
+        {
+            const min_col_x = new_pos.sub(0.5, 0.25, 0.25).floatToInt(i32);
+            const max_col_x = new_pos.add(0.0, 0.25, 0.25).floatToInt(i32);
+            var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
+            var top_x: ?i32 = null;
+            while (rect_block_iter.next()) |res| {
+                if (res.block != .Air) {
+                    top_x = std.math.max(res.pos.x, top_x orelse res.pos.x);
+                }
+            }
+            if (top_x) |col_top_x| {
+                // Calculate the top of the voxels they fell into
+                var correction = @intToFloat(f32, col_top_x) + 1.5 - new_pos.x;
+                correction = std.math.max(0, std.math.min(correction,  this.position.x - new_pos.x));
+                new_pos.x += correction;
+                this.velocity.x = 0;
+            }
+        }
+        {
+            const min_col_x = new_pos.sub(0.0, 0.25, 0.25).floatToInt(i32);
+            const max_col_x = new_pos.add(0.5, 0.25, 0.25).floatToInt(i32);
+            var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
+            var bottom_x: ?i32 = null;
+            while (rect_block_iter.next()) |res| {
+                if (res.block != .Air) {
+                    bottom_x = std.math.min(res.pos.x, bottom_x orelse res.pos.x);
+                }
+            }
+            if (bottom_x) |col_bottom_x| {
+                var correction = @intToFloat(f32, col_bottom_x) + 1.5 - new_pos.x;
+                correction = std.math.max(0, std.math.min(correction, new_pos.x - this.position.x));
+                new_pos.x -= correction;
+                this.velocity.x = 0;
+            }
+        }
+        {
+            const min_col_z = new_pos.sub(0.5, 0.25, 0.25).floatToInt(i32);
+            const max_col_z = new_pos.add(0.0, 0.25, 0.25).floatToInt(i32);
+            var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
+            var top_z: ?i32 = null;
+            while (rect_block_iter.next()) |res| {
+                if (res.block != .Air) {
+                    top_z = std.math.max(res.pos.z, top_z orelse res.pos.z);
+                }
+            }
+            if (top_z) |col_top_z| {
+                // Calculate the top of the voxels they fell into
+                var correction = @intToFloat(f32, col_top_z) + 1.5 - new_pos.z;
+                correction = std.math.max(0, std.math.min(correction,  this.position.z - new_pos.z));
+                new_pos.z += correction;
+                this.velocity.z = 0;
+            }
+        }
+        {
+            const min_col_z = new_pos.sub(0.0, 0.25, 0.25).floatToInt(i32);
+            const max_col_z = new_pos.add(0.5, 0.25, 0.25).floatToInt(i32);
+            var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
+            var bottom_z: ?i32 = null;
+            while (rect_block_iter.next()) |res| {
+                if (res.block != .Air) {
+                    bottom_z = std.math.min(res.pos.z, bottom_z orelse res.pos.z);
+                }
+            }
+            if (bottom_z) |col_bottom_z| {
+                var correction = @intToFloat(f32, col_bottom_z) + 1.5 - new_pos.z;
+                correction = std.math.max(0, std.math.min(correction, new_pos.z - this.position.z));
+                new_pos.z -= correction;
+                this.velocity.z = 0;
+            }
+        }
 
         // Check for collisions with ground
         {
@@ -115,7 +186,6 @@ pub const State = struct {
             var bottom_y: ?i32 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
-                    this.velocity.y = 0;
                     bottom_y = std.math.min(res.pos.y, bottom_y orelse res.pos.y);
                 }
             }
