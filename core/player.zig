@@ -13,6 +13,7 @@ const FRICTION_COEFFICIENT = 20.0;
 const AIR_FRICTION = 1.0;
 const FLOOR_FRICTION = 0.2;
 const GRAVITY = 50.0;
+const JUMP_VEL = 10.0;
 
 pub const Input = struct {
     /// The direction the player is accelerating in
@@ -36,6 +37,7 @@ pub const State = struct {
     position: Vec3f,
     velocity: Vec3f,
     lookAngle: Vec2f,
+    onGround: bool = false,
 
     pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, chunk: Chunk) void {
         this.lookAngle = input.lookAngle;
@@ -46,6 +48,10 @@ pub const State = struct {
         const up = vec3f(0, 1, 0);
 
         this.velocity.y += -GRAVITY * @floatCast(f32, deltaTime);
+        if (this.onGround and input.jump) {
+            this.velocity.y = JUMP_VEL;
+            this.onGround = false;
+        }
 
         var hvel = vec2f(this.velocity.x, this.velocity.z);
 
@@ -159,6 +165,7 @@ pub const State = struct {
 
         // Check for collisions with ground
         {
+            this.onGround = false;
             const min_col_y = new_pos.sub(0.25, 1.5, 0.25).floatToInt(i32);
             const max_col_y = new_pos.add(0.25, 0.0, 0.25).floatToInt(i32);
             var rect_block_iter = chunk.iterateRect(min_col_y, max_col_y);
@@ -176,6 +183,7 @@ pub const State = struct {
                 correction = std.math.clamp(correction, 0, this.position.y - new_pos.y);
                 new_pos.y += correction;
                 this.velocity.y = 0;
+                this.onGround = true;
             }
         }
         // Check for collisions with ceiling
