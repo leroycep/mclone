@@ -172,7 +172,7 @@ pub fn main() !void {
 
                                 const deltaTime = update.time - client.currentTime;
 
-                                client.state.update(update.time, deltaTime, update.input);
+                                client.state.update(update.time, deltaTime, update.input, chunk);
                                 client.currentTime = update.time;
 
                                 broadcastPacket(alloc, &clients, ServerDatagram{

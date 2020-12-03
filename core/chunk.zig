@@ -3,6 +3,7 @@ const math = @import("math");
 const Vec2f = math.Vec2f;
 const Vec3f = math.Vec3f;
 const vec3f = math.vec3f;
+const Vec3i = math.Vec(3, i32);
 const VoxelTraversal = math.VoxelTraversal;
 
 pub const CX = 16;
@@ -88,5 +89,53 @@ pub const Chunk = struct {
             return chunk_pos;
         }
         return null;
+    }
+
+    pub const RectIterator = struct {
+        chunk: *const Chunk,
+        min: Vec3i,
+        max: Vec3i,
+        current: Vec3i,
+
+        pub const Result = struct {
+            pos: Vec3i,
+            block: BlockType,
+        };
+
+        pub fn next(this: *@This()) ?Result {
+            if (this.current.z > this.max.z) return null;
+            defer {
+                this.current.x += 1;
+                if (this.current.x > this.max.x) {
+                    this.current.x = this.min.x;
+                    this.current.y += 1;
+                    if (this.current.y > this.max.y) {
+                        this.current.y = this.min.y;
+                        this.current.z += 1;
+                    }
+                }
+            }
+            if (this.current.x < 0 or this.current.y < 0 or this.current.z < 0 or this.current.x >= CX or this.current.y >= CY or this.current.z >= CZ) {
+                return Result{
+                    .pos = this.current,
+                    .block = .Air,
+                };
+            }
+            return Result{
+                .pos = this.current,
+                .block = this.chunk.blk[@intCast(usize, this.current.x)][@intCast(usize, this.current.y)][@intCast(usize, this.current.z)],
+            };
+        }
+    };
+
+    pub fn iterateRect(self: *const @This(), a: Vec3i, b: Vec3i) RectIterator {
+        const min = a.minComponentsv(b);
+        const max = a.maxComponentsv(b);
+        return RectIterator{
+            .chunk = self,
+            .min = min,
+            .max = max,
+            .current = min,
+        };
     }
 };

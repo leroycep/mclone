@@ -267,7 +267,8 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                     const move_to_replay = moves.idxMut(idx).?;
                     const delta_time = prev_time - move_to_replay.time;
 
-                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input);
+                    // TODO: store state of chunk at time
+                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input, chunkRender.chunk);
                     move_to_replay.state = corrected_state;
 
                     prev_time = move_to_replay.time;
@@ -309,7 +310,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .breaking = input.breaking,
     };
 
-    player_state.update(current_time, delta, player_input);
+    player_state.update(current_time, delta, player_input, chunkRender.chunk);
 
     try moves.push_back(.{
         .time = current_time,
