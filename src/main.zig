@@ -51,7 +51,7 @@ var input = Input{};
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 
-var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0) };
+var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var other_player_states: std.AutoHashMap(u32, core.player.State) = undefined;
 
 const Move = struct {
@@ -283,6 +283,8 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                 } else if (distance > 0.1) {
                     player_state.position = player_state.position.addv(difference.scale(0.1));
                 }
+
+                player_state.velocity = corrected_state.velocity;
             }
         } else {
             // TODO: Integrate other clients with client side state prediction
@@ -297,8 +299,11 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
 }
 
 pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
+    const dir = vec2f(input.right - input.left, input.forward - input.backward);
+    const maxVel = dir.magnitude();
     const player_input = core.player.Input{
-        .move = vec2f(input.right - input.left, input.forward - input.backward),
+        .accelDir = if (maxVel > 0) dir.normalize() else vec2f(0, 1),
+        .maxVel = maxVel,
         .jump = input.up > 0,
         .crouch = input.down > 0,
         .lookAngle = camera_angle,

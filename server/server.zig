@@ -125,7 +125,8 @@ pub fn main() !void {
                     .id = next_id,
                     .currentTime = 0,
                     .state = .{
-                        .position = .{ .x = 0, .y = 0, .z = 0 },
+                        .position = .{ .x = 1, .y = 14, .z = 1 },
+                        .velocity = .{ .x = 0, .y = 0, .z = 0 },
                         .lookAngle = .{ .x = 0, .y = 0 },
                     },
                 };
