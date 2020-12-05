@@ -53,6 +53,9 @@ pub fn main() !void {
     try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 0));
     try world.ensureChunkLoaded(math.Vec(3, i64).init(0, 0, 1));
     try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 1));
+    try world.loadChunkFromMemory(math.Vec(3, i64).init(0, 1, 0), core.chunk.Chunk.init());
+    try world.loadChunkFromMemory(math.Vec(3, i64).init(1, 1, 0), core.chunk.Chunk.init());
+    try world.loadChunkFromMemory(math.Vec(3, i64).init(0, 1, 1), core.chunk.Chunk.init());
     try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 1, 1));
 
     const max_players = 24;
