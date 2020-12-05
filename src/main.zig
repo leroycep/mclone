@@ -53,6 +53,7 @@ const Input = struct {
     } = null,
 };
 var input = Input{};
+var item : BlockType = .Stone;
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 
@@ -186,6 +187,13 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 mouse_captured = !mouse_captured;
                 try context.setRelativeMouseMode(mouse_captured);
             },
+            ._0 => item = .Stone,
+            ._1 => item = .Dirt,
+            ._2 => item = .Grass,
+            ._3 => item = .Wood,
+            ._4 => item = .Leaf,
+            ._5 => item = .CoalOre,
+            ._6 => item = .IronOre,
             else => {},
         },
         .MouseMotion => |mouse_move| {
@@ -212,7 +220,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 if (chunkRender.chunk.raycastLastEmpty(player_state.position, camera_angle, 5)) |block_pos| {
                     input.placing = .{
                         .pos = block_pos.intCast(i64),
-                        .block = .Stone,
+                        .block = item,
                     };
                 }
             },
