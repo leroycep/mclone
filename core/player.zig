@@ -4,6 +4,7 @@ const Vec2f = math.Vec2f;
 const vec2f = math.vec2f;
 const Vec3f = math.Vec3f;
 const vec3f = math.vec3f;
+const BlockType = @import("./core.zig").chunk.BlockType;
 const Chunk = @import("./core.zig").chunk.Chunk;
 
 const MOVE_SPEED = 4.5;
@@ -31,6 +32,12 @@ pub const Input = struct {
 
     /// The block that the player is breaking
     breaking: ?math.Vec(3, i32),
+
+    /// The block the player is placing
+    placing: ? struct {
+        pos: math.Vec(3, i32),
+        block: BlockType,
+    },
 };
 
 pub const State = struct {

@@ -91,6 +91,36 @@ pub const Chunk = struct {
         return null;
     }
 
+    pub fn raycastLastEmpty(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f32) ?math.Vec(3, u8) {
+        const lookat = vec3f(
+            std.math.sin(angle.x) * std.math.cos(angle.y),
+            std.math.sin(angle.y),
+            std.math.cos(angle.x) * std.math.cos(angle.y),
+        );
+        const start = origin;
+        const end = origin.addv(lookat.scale(max_len));
+
+        var iterations_left = @floatToInt(usize, max_len * 1.5);
+        var voxel_iter = VoxelTraversal.init(start, end);
+        var previous_voxel: ?math.Vec(3, u8) = null;
+        while (voxel_iter.next()) |voxel_pos| {
+            if (iterations_left == 0) break;
+            iterations_left -= 1;
+
+            if (voxel_pos.x < 0 or voxel_pos.y < 0 or voxel_pos.z < 0) continue;
+            if (voxel_pos.x >= CX or voxel_pos.y >= CY or voxel_pos.z >= CZ) continue;
+
+            const chunk_pos = voxel_pos.intCast(u8);
+            const block = self.get(chunk_pos.x, chunk_pos.y, chunk_pos.z);
+            if (block == .Air) {
+                previous_voxel = chunk_pos;
+            } else {
+                break;
+            }
+        }
+        return previous_voxel;
+    }
+
     pub const RectIterator = struct {
         chunk: *const Chunk,
         min: Vec3i,

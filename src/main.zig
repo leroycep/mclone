@@ -13,6 +13,7 @@ const Mat4f = math.Mat4f;
 const pi = std.math.pi;
 const OBB = collision.OBB;
 const core = @import("core");
+const BlockType = core.chunk.BlockType;
 const Chunk = core.chunk.Chunk;
 const ChunkRender = @import("./chunk.zig").ChunkRender;
 const ArrayList = std.ArrayList;
@@ -46,6 +47,10 @@ const Input = struct {
     up: f32 = 0,
     down: f32 = 0,
     breaking: ?math.Vec(3, i32) = null,
+    placing: ? struct {
+        pos: math.Vec(3, i32),
+        block: BlockType,
+    } = null,
 };
 var input = Input{};
 var mouse_captured: bool = true;
@@ -203,6 +208,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                     //chunkRender.chunk.set(block.x, block.y, block.z, .Air);
                 }
             },
+            .Right => {
+                if (chunkRender.chunk.raycastLastEmpty(player_state.position, camera_angle, 5)) |block_pos| {
+                    input.placing = .{
+                        .pos = block_pos.intCast(i32),
+                        .block = .Stone,
+                    };
+                }
+            },
             else => {},
         },
         else => {},
@@ -309,6 +322,13 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .crouch = input.down > 0,
         .lookAngle = camera_angle,
         .breaking = input.breaking,
+        .placing = if (input.placing) |placing|
+            .{
+                .pos = placing.pos,
+                .block = placing.block,
+            }
+        else
+                null,
     };
 
     previous_player_state = player_state;
@@ -341,6 +361,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     }
 
     input.breaking = null;
+    input.placing = null;
 }
 
 pub fn render(context: *platform.Context, alpha: f64) !void {

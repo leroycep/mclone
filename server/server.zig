@@ -6,6 +6,7 @@ const AutoHashMap = std.hash_map.AutoHashMap;
 const Address = std.net.Address;
 const NonblockingStreamServer = @import("./nonblocking_stream_server.zig").NonblockingStreamServer;
 const core = @import("core");
+const BlockType = core.chunk.BlockType;
 const protocol = core.protocol;
 const ClientDatagram = protocol.ClientDatagram;
 const ServerDatagram = protocol.ServerDatagram;
@@ -185,6 +186,13 @@ pub fn main() !void {
 
                                 if (update.input.breaking) |block_pos| {
                                     chunk.set(block_pos.x, block_pos.y, block_pos.z, .Air);
+                                    broadcastPacket(alloc, &clients, ServerDatagram{
+                                        .ChunkUpdate = .{ .chunk = chunk },
+                                    });
+                                }
+
+                                if (update.input.placing) |placing| {
+                                    chunk.set(placing.pos.x, placing.pos.y, placing.pos.z, placing.block);
                                     broadcastPacket(alloc, &clients, ServerDatagram{
                                         .ChunkUpdate = .{ .chunk = chunk },
                                     });
