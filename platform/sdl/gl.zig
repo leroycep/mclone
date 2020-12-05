@@ -7,6 +7,7 @@ pub const GLint = c.GLint;
 pub const GLsizei = c.GLsizei;
 pub const GLushort = c.GLushort;
 pub const GLbyte = c.GLbyte;
+pub const GLfloat = c.GLfloat;
 
 pub const GL_VERTEX_SHADER = c.GL_VERTEX_SHADER;
 pub const GL_FRAGMENT_SHADER = c.GL_FRAGMENT_SHADER;

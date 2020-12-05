@@ -143,6 +143,7 @@ fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !platfo
     platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MIN_FILTER, platform.GL_NEAREST);
     platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MAG_FILTER, platform.GL_NEAREST);
 
+    platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
     return texture;
 }
 
@@ -171,7 +172,6 @@ fn loadTile(alloc: *std.mem.Allocator, layer: platform.GLint, filepath: []const 
     }
 
     platform.glTexSubImage3D(platform.GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 1, platform.GL_RGBA, platform.GL_UNSIGNED_BYTE, pixelData.ptr);
-    //platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
 }
 
 pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
@@ -387,8 +387,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const screen_size = screen_size_int.intToFloat(f64);
 
     const aspect = screen_size.x / screen_size.y;
-    const zNear = 0.01;
-    const zFar = 1000;
+    const zNear = 0.25;
+    const zFar = 200;
     const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
