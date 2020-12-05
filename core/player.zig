@@ -7,12 +7,12 @@ const vec3f = math.vec3f;
 const Chunk = @import("./core.zig").chunk.Chunk;
 
 const MOVE_SPEED = 4.5;
-const ACCEL_SPEED = 1.0;
+const ACCEL_SPEED = 2.0;
 const ACCEL_COEFFICIENT = 10.0;
 const FRICTION_COEFFICIENT = 20.0;
-const AIR_FRICTION = 1.0;
-const FLOOR_FRICTION = 0.2;
-const GRAVITY = 50.0;
+const AIR_FRICTION = 0.2;
+const FLOOR_FRICTION = 0.8;
+const GRAVITY = 40.0;
 const JUMP_VEL = 10.0;
 
 pub const Input = struct {
@@ -53,6 +53,8 @@ pub const State = struct {
             this.onGround = false;
         }
 
+        const fric = if (this.onGround) @as(f32, FLOOR_FRICTION) else AIR_FRICTION;
+
         var hvel = vec2f(this.velocity.x, this.velocity.z);
 
         const accelDir = if (input.accelDir.magnitude() > 0) calc_accelDir: {
@@ -61,9 +63,9 @@ pub const State = struct {
             break :calc_accelDir vec2f(absAccelDir.x, absAccelDir.z);
         } else vec2f(0, 1);
         const maxVel = std.math.clamp(input.maxVel, 0, 1) * MOVE_SPEED;
-        var accel = accelDir.scale(maxVel * ACCEL_COEFFICIENT * FLOOR_FRICTION * ACCEL_SPEED * @floatCast(f32, deltaTime));
+        var accel = accelDir.scale(maxVel * ACCEL_COEFFICIENT * fric * ACCEL_SPEED * @floatCast(f32, deltaTime));
 
-        var fricVel = hvel.scale(FLOOR_FRICTION * FRICTION_COEFFICIENT * @floatCast(f32, deltaTime));
+        var fricVel = hvel.scale(fric * FRICTION_COEFFICIENT * @floatCast(f32, deltaTime));
 
         var speed = hvel.magnitude();
         if (speed <= maxVel) {
@@ -89,11 +91,9 @@ pub const State = struct {
 
         var new_pos = this.position.addv(this.velocity.scale(@floatCast(f32, deltaTime)));
 
-        //const collisionX = math.AABB(3, f32).init(new_pos, vec3f(1, 0.5, 0.5));
-        //const collisionZ = math.AABB(3, f32).init(new_pos, vec3f(1, 0.5, 0.5));
         // Check for horizontal collisions
         {
-            const min_col_x = new_pos.sub(0.5, 0.25, 0.25).floatToInt(i32);
+            const min_col_x = new_pos.sub(0.5, 0.5, 0.25).floatToInt(i32);
             const max_col_x = new_pos.add(0.0, 0.25, 0.25).floatToInt(i32);
             var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
             var top_x: ?i32 = null;
@@ -105,13 +105,13 @@ pub const State = struct {
             if (top_x) |col_top_x| {
                 // Calculate the top of the voxels they fell into
                 var correction = @intToFloat(f32, col_top_x) + 1.5 - new_pos.x;
-                correction = std.math.max(0, std.math.min(correction,  this.position.x - new_pos.x));
+                correction = std.math.max(0, std.math.min(correction, this.position.x - new_pos.x));
                 new_pos.x += correction;
                 this.velocity.x = 0;
             }
         }
         {
-            const min_col_x = new_pos.sub(0.0, 0.25, 0.25).floatToInt(i32);
+            const min_col_x = new_pos.sub(0.0, 0.5, 0.25).floatToInt(i32);
             const max_col_x = new_pos.add(0.5, 0.25, 0.25).floatToInt(i32);
             var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
             var bottom_x: ?i32 = null;
@@ -128,7 +128,7 @@ pub const State = struct {
             }
         }
         {
-            const min_col_z = new_pos.sub(0.5, 0.25, 0.25).floatToInt(i32);
+            const min_col_z = new_pos.sub(0.5, 0.5, 0.25).floatToInt(i32);
             const max_col_z = new_pos.add(0.0, 0.25, 0.25).floatToInt(i32);
             var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
             var top_z: ?i32 = null;
@@ -140,13 +140,13 @@ pub const State = struct {
             if (top_z) |col_top_z| {
                 // Calculate the top of the voxels they fell into
                 var correction = @intToFloat(f32, col_top_z) + 1.5 - new_pos.z;
-                correction = std.math.max(0, std.math.min(correction,  this.position.z - new_pos.z));
+                correction = std.math.max(0, std.math.min(correction, this.position.z - new_pos.z));
                 new_pos.z += correction;
                 this.velocity.z = 0;
             }
         }
         {
-            const min_col_z = new_pos.sub(0.0, 0.25, 0.25).floatToInt(i32);
+            const min_col_z = new_pos.sub(0.0, 0.5, 0.25).floatToInt(i32);
             const max_col_z = new_pos.add(0.5, 0.25, 0.25).floatToInt(i32);
             var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
             var bottom_z: ?i32 = null;
@@ -180,7 +180,7 @@ pub const State = struct {
                 var correction = @intToFloat(f32, col_top_y) + 2.5 - new_pos.y;
                 // Don't move the player up more than they fell
                 // TODO: Loosen this restriction so stairs work
-                correction = std.math.clamp(correction, 0, this.position.y - new_pos.y);
+                correction = std.math.max(0, std.math.min(correction, this.position.y - new_pos.y));
                 new_pos.y += correction;
                 this.velocity.y = 0;
                 this.onGround = true;
@@ -199,7 +199,7 @@ pub const State = struct {
             }
             if (bottom_y) |col_bottom_y| {
                 var correction = @intToFloat(f32, col_bottom_y) + 0.5 - new_pos.y;
-                correction = std.math.clamp(correction, 0, new_pos.y - this.position.y);
+                correction = std.math.max(0, std.math.min(correction, new_pos.y - this.position.y));
                 new_pos.y -= correction;
                 this.velocity.y = 0;
             }
