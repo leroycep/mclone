@@ -58,6 +58,21 @@ pub fn main() !void {
     try world.loadChunkFromMemory(math.Vec(3, i64).init(0, 1, 1), core.chunk.Chunk.init());
     try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 1, 1));
 
+    var pos = math.Vec(3, i64).init(0, 0, 0);
+    while (pos.z < 16) {
+        try world.ensureChunkLoaded(pos);
+
+        pos.x += 1;
+        if (pos.x > 16) {
+            pos.x = 0;
+            pos.y += 1;
+            if (pos.y > 16) {
+                pos.y = 0;
+                pos.z += 1;
+            }
+        }
+    }
+
     const max_players = 24;
     var num_players: usize = 0;
 
@@ -108,12 +123,27 @@ pub fn main() !void {
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
 
-                var chunk_iter = world.chunks.iterator();
-                while (chunk_iter.next()) |chunk_entry| {
-                    try client.sendPacket(ServerDatagram{
-                        .ChunkUpdate = .{ .pos = chunk_entry.key, .chunk = chunk_entry.value },
-                    });
+                const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
+                var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
+                while (chunk_offset.z <= 1) {
+                    const chunk_pos = player_chunk_pos.addv(chunk_offset);
+                    if (world.chunks.get(chunk_pos)) |chunk| {
+                        try client.sendPacket(ServerDatagram{
+                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
+                        });
+                    }
+
+                    chunk_offset.x += 1;
+                    if (chunk_offset.x > 1) {
+                        chunk_offset.x = 0;
+                        chunk_offset.y += 1;
+                        if (chunk_offset.y > 1) {
+                            chunk_offset.y = 0;
+                            chunk_offset.z += 1;
+                        }
+                    }
                 }
+
                 broadcastPacket(alloc, &clients, ServerDatagram{
                     .Update = .{
                         .id = client.id,
@@ -147,6 +177,8 @@ pub fn main() !void {
 
                                 const deltaTime = update.time - client.currentTime;
 
+                                const prev_player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
+
                                 client.state.update(update.time, deltaTime, update.input, world);
                                 client.currentTime = update.time;
 
@@ -175,6 +207,29 @@ pub fn main() !void {
                                         broadcastPacket(alloc, &clients, ServerDatagram{
                                             .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
                                         });
+                                    }
+                                }
+
+                                const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
+                                if (!prev_player_chunk_pos.eql(player_chunk_pos)) {
+                                    var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
+                                    while (chunk_offset.z <= 1) {
+                                        const chunk_pos = player_chunk_pos.addv(chunk_offset);
+                                        if (world.chunks.get(chunk_pos)) |chunk| {
+                                            try client.sendPacket(ServerDatagram{
+                                                .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
+                                            });
+                                        }
+
+                                        chunk_offset.x += 1;
+                                        if (chunk_offset.x > 1) {
+                                            chunk_offset.x = 0;
+                                            chunk_offset.y += 1;
+                                            if (chunk_offset.y > 1) {
+                                                chunk_offset.y = 0;
+                                                chunk_offset.z += 1;
+                                            }
+                                        }
                                     }
                                 }
                             },
