@@ -14,8 +14,7 @@ const pi = std.math.pi;
 const OBB = collision.OBB;
 const core = @import("core");
 const BlockType = core.chunk.BlockType;
-const Chunk = core.chunk.Chunk;
-const ChunkRender = @import("./chunk.zig").ChunkRender;
+const WorldRenderer = @import("./world_render.zig").WorldRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
@@ -29,9 +28,10 @@ const FRAG_CODE = @embedFile("glescraft.frag");
 
 var shaderProgram: platform.GLuint = undefined;
 var projectionMatrixUniform: platform.GLint = undefined;
+var modelTranformUniform: platform.GLint = undefined;
 
 // var chunk: Chunk = undefined;
-var chunkRender: ChunkRender = undefined;
+var worldRenderer: WorldRenderer = undefined;
 var cursor_vbo: platform.GLuint = undefined;
 
 var tilesetTex: platform.GLuint = undefined;
@@ -96,11 +96,12 @@ pub fn onInit(context: *platform.Context) !void {
     platform.glUseProgram(shaderProgram);
 
     // Set up VAO
-    chunkRender = ChunkRender.init(Chunk.init());
+    worldRenderer = try WorldRenderer.init(context.alloc);
 
     platform.glGenBuffers(1, &cursor_vbo);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
+    modelTranformUniform = platform.glGetUniformLocation(shaderProgram, "modelTransform");
 
     try context.setRelativeMouseMode(true);
 
@@ -211,17 +212,18 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         },
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
-                if (chunkRender.chunk.raycast(player_state.position, camera_angle, 5)) |block_pos| {
-                    input.breaking = block_pos.intCast(i64);
-                    //chunkRender.chunk.set(block.x, block.y, block.z, .Air);
+                if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
+                    input.breaking = raycast.pos;
                 }
             },
             .Right => {
-                if (chunkRender.chunk.raycastLastEmpty(player_state.position, camera_angle, 5)) |block_pos| {
-                    input.placing = .{
-                        .pos = block_pos.intCast(i64),
-                        .block = item,
-                    };
+                if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
+                    if (raycast.prev) |block_pos| {
+                        input.placing = .{
+                            .pos = block_pos,
+                            .block = item,
+                        };
+                    }
                 }
             },
             else => {},
@@ -290,7 +292,7 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                     const delta_time = prev_time - move_to_replay.time;
 
                     // TODO: store state of chunk at time
-                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input, chunkRender.chunk);
+                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input, worldRenderer.world);
                     move_to_replay.state = corrected_state;
 
                     prev_time = move_to_replay.time;
@@ -314,8 +316,7 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             gop.entry.value = update_data.state;
         },
         .ChunkUpdate => |chunk_update| {
-            chunkRender.chunk = chunk_update.chunk;
-            chunkRender.update();
+            worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
         },
     }
 }
@@ -340,7 +341,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     };
 
     previous_player_state = player_state;
-    player_state.update(current_time, delta, player_input, chunkRender.chunk);
+    player_state.update(current_time, delta, player_input, worldRenderer.world);
 
     try moves.push_back(.{
         .time = current_time,
@@ -403,9 +404,10 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glPolygonOffset(1, 0.25);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
-    chunkRender.render(shaderProgram);
+    worldRenderer.render(shaderProgram, modelTranformUniform);
 
     // Draw box around selected box
+    platform.glUniformMatrix4fv(modelTranformUniform, 1, platform.GL_FALSE, &math.Mat4(f32).ident().v);
     platform.glBindBuffer(platform.GL_ARRAY_BUFFER, cursor_vbo);
     var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
     platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
@@ -449,8 +451,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
     platform.glDisable(platform.GL_CULL_FACE);
 
-    if (chunkRender.chunk.raycast(render_pos, camera_angle, 5)) |selected_int| {
-        const selected = selected_int.intToFloat(f32);
+    if (worldRenderer.world.raycast(render_pos, camera_angle, 5)) |raycast| {
+        const selected = raycast.pos.intToFloat(f32);
         const box = [24][4]f32{
             .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
             .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },

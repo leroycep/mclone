@@ -10,6 +10,7 @@ const BlockType = core.chunk.BlockType;
 const protocol = core.protocol;
 const ClientDatagram = protocol.ClientDatagram;
 const ServerDatagram = protocol.ServerDatagram;
+const math = @import("math");
 
 const MAX_CLIENTS = 2;
 
@@ -47,46 +48,12 @@ pub fn main() !void {
     });
 
     // Generate world
-    var chunk = core.chunk.Chunk.init();
-    chunk.layer(0, .Stone);
-    chunk.layer(1, .Stone);
-    chunk.layer(2, .Stone);
-    chunk.layer(3, .Dirt);
-    chunk.layer(4, .Dirt);
-    chunk.layer(5, .Dirt);
-    chunk.layer(6, .Grass);
-    chunk.blk[0][1][0] = .IronOre;
-    chunk.blk[0][2][0] = .CoalOre;
-    chunk.blk[0][3][0] = .Air;
-
-    chunk.blk[7][7][7] = .Wood;
-    chunk.blk[7][8][7] = .Wood;
-    chunk.blk[7][9][7] = .Wood;
-    chunk.blk[7][10][7] = .Wood;
-    chunk.blk[7][11][7] = .Wood;
-    chunk.blk[7][12][7] = .Wood;
-    chunk.blk[7][13][7] = .Wood;
-    chunk.blk[7][14][7] = .Leaf;
-
-    chunk.blk[8][10][7] = .Leaf;
-    chunk.blk[8][11][7] = .Leaf;
-    chunk.blk[8][12][7] = .Leaf;
-    chunk.blk[8][13][7] = .Leaf;
-
-    chunk.blk[6][10][7] = .Leaf;
-    chunk.blk[6][11][7] = .Leaf;
-    chunk.blk[6][12][7] = .Leaf;
-    chunk.blk[6][13][7] = .Leaf;
-
-    chunk.blk[7][10][8] = .Leaf;
-    chunk.blk[7][11][8] = .Leaf;
-    chunk.blk[7][12][8] = .Leaf;
-    chunk.blk[7][13][8] = .Leaf;
-
-    chunk.blk[7][10][6] = .Leaf;
-    chunk.blk[7][11][6] = .Leaf;
-    chunk.blk[7][12][6] = .Leaf;
-    chunk.blk[7][13][6] = .Leaf;
+    var world = try core.World.init(alloc);
+    try world.ensureChunkLoaded(math.Vec(3, i64).init(0, 0, 0));
+    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 0));
+    try world.ensureChunkLoaded(math.Vec(3, i64).init(0, 0, 1));
+    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 1));
+    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 1, 1));
 
     const max_players = 24;
     var num_players: usize = 0;
@@ -137,9 +104,13 @@ pub fn main() !void {
                 try clients.put(new_connection.file.handle, client);
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
-                try client.sendPacket(ServerDatagram{
-                    .ChunkUpdate = .{ .chunk = chunk },
-                });
+
+                var chunk_iter = world.chunks.iterator();
+                while (chunk_iter.next()) |chunk_entry| {
+                    try client.sendPacket(ServerDatagram{
+                        .ChunkUpdate = .{ .pos = chunk_entry.key, .chunk = chunk_entry.value },
+                    });
+                }
                 broadcastPacket(alloc, &clients, ServerDatagram{
                     .Update = .{
                         .id = client.id,
@@ -173,7 +144,7 @@ pub fn main() !void {
 
                                 const deltaTime = update.time - client.currentTime;
 
-                                client.state.update(update.time, deltaTime, update.input, chunk);
+                                client.state.update(update.time, deltaTime, update.input, world);
                                 client.currentTime = update.time;
 
                                 broadcastPacket(alloc, &clients, ServerDatagram{
@@ -185,17 +156,23 @@ pub fn main() !void {
                                 });
 
                                 if (update.input.breaking) |block_pos| {
-                                    chunk.set(block_pos.x, block_pos.y, block_pos.z, .Air);
-                                    broadcastPacket(alloc, &clients, ServerDatagram{
-                                        .ChunkUpdate = .{ .chunk = chunk },
-                                    });
+                                    world.setv(block_pos, .Air);
+                                    const chunk_pos = block_pos.scaleDivFloor(16);
+                                    if (world.chunks.get(chunk_pos)) |chunk| {
+                                        broadcastPacket(alloc, &clients, ServerDatagram{
+                                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
+                                        });
+                                    }
                                 }
 
                                 if (update.input.placing) |placing| {
-                                    chunk.set(placing.pos.x, placing.pos.y, placing.pos.z, placing.block);
-                                    broadcastPacket(alloc, &clients, ServerDatagram{
-                                        .ChunkUpdate = .{ .chunk = chunk },
-                                    });
+                                    world.setv(placing.pos, placing.block);
+                                    const chunk_pos = placing.pos.scaleDivFloor(16);
+                                    if (world.chunks.get(chunk_pos)) |chunk| {
+                                        broadcastPacket(alloc, &clients, ServerDatagram{
+                                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
+                                        });
+                                    }
                                 }
                             },
                         }

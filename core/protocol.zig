@@ -31,6 +31,7 @@ pub const ServerDatagram = union(enum) {
     },
     // TODO: Move this to reliable packet once that distinction exists
     ChunkUpdate: struct {
+        pos: math.Vec(3, i64),
         chunk: core.chunk.Chunk,
     },
 };

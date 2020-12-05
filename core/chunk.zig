@@ -36,8 +36,17 @@ pub const Chunk = struct {
         return self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)];
     }
 
+    pub fn getv(self: @This(), pos: Vec3i) BlockType {
+        return self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)];
+    }
+
     pub fn set(self: *@This(), x: i64, y: i64, z: i64, blockType: BlockType) void {
         self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = blockType;
+        self.changed = true;
+    }
+
+    pub fn setv(self: *@This(), pos: Vec3i, blockType: BlockType) void {
+        self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)] = blockType;
         self.changed = true;
     }
 

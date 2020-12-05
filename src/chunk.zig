@@ -96,15 +96,13 @@ const DESCRIPTIONS = comptime describe_blocks: {
 };
 
 pub const ChunkRender = struct {
-    chunk: Chunk,
     vbo: GLuint,
     elements: u32,
 
-    pub fn init(chunk: Chunk) @This() {
+    pub fn init() @This() {
         var vbo: GLuint = 0;
         platform.glGenBuffers(1, &vbo);
         var this = @This(){
-            .chunk = chunk,
             .elements = 0,
             .vbo = vbo,
         };
@@ -116,14 +114,12 @@ pub const ChunkRender = struct {
     }
 
     // Get description for block at coord
-    pub fn descFor(self: @This(), x: u8, y: u8, z: u8) BlockDescription {
-        var blockType = self.chunk.blk[x][y][z];
+    pub fn descFor(chunk: Chunk, x: u8, y: u8, z: u8) BlockDescription {
+        var blockType = chunk.blk[x][y][z];
         return DESCRIPTIONS[@enumToInt(blockType)];
     }
 
-    pub fn update(self: *@This()) void {
-        self.chunk.changed = false;
-
+    pub fn update(self: *@This(), chunk: Chunk) void {
         var vertex: [CX * CY * CZ * 6 * 6]Byte4 = undefined;
         var i: u32 = 0;
 
@@ -133,7 +129,7 @@ pub const ChunkRender = struct {
             while (yi < CY) : (yi += 1) {
                 var zi: u8 = 0;
                 while (zi < CZ) : (zi += 1) {
-                    const desc = self.descFor(xi, yi, zi);
+                    const desc = descFor(chunk, xi, yi, zi);
 
                     var x = @intCast(i8, xi);
                     var y = @intCast(i8, yi);
@@ -144,7 +140,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from negative x
-                    if (xi == 0 or (xi > 0 and !self.descFor(xi - 1, yi, zi).isOpaque())) {
+                    if (xi == 0 or (xi > 0 and !descFor(chunk, xi - 1, yi, zi).isOpaque())) {
                         const tex = @bitCast(i8, desc.texForSide(.West));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
@@ -161,7 +157,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from positive x
-                    if (xi == CX - 1 or (xi < CX - 1 and !self.descFor(xi + 1, yi, zi).isOpaque())) {
+                    if (xi == CX - 1 or (xi < CX - 1 and !descFor(chunk, xi + 1, yi, zi).isOpaque())) {
                         const tex = @bitCast(i8, desc.texForSide(.East));
                         vertex[i] = Byte4{ x + 1, y, z, tex };
                         i += 1;
@@ -178,7 +174,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from negative y
-                    if (yi == 0 or (yi > 0 and !self.descFor(xi, yi - 1, zi).isOpaque())) {
+                    if (yi == 0 or (yi > 0 and !descFor(chunk, xi, yi - 1, zi).isOpaque())) {
                         const tex = -@bitCast(i8, desc.texForSide(.Bottom));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
@@ -195,7 +191,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from positive y
-                    if (yi == CY - 1 or (yi < CY - 1 and !self.descFor(xi, yi + 1, zi).isOpaque())) {
+                    if (yi == CY - 1 or (yi < CY - 1 and !descFor(chunk, xi, yi + 1, zi).isOpaque())) {
                         const tex = -@bitCast(i8, desc.texForSide(.Top));
                         vertex[i] = Byte4{ x, y + 1, z, tex };
                         i += 1;
@@ -212,7 +208,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from negative z
-                    if (zi == 0 or (zi > 0 and !self.descFor(xi, yi, zi - 1).isOpaque())) {
+                    if (zi == 0 or (zi > 0 and !descFor(chunk, xi, yi, zi - 1).isOpaque())) {
                         const tex = @bitCast(i8, desc.texForSide(.South));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
@@ -229,7 +225,7 @@ pub const ChunkRender = struct {
                     }
 
                     // View from positive z
-                    if (zi == CZ - 1 or (zi < CZ - 1 and !self.descFor(xi, yi, zi + 1).isOpaque())) {
+                    if (zi == CZ - 1 or (zi < CZ - 1 and !descFor(chunk, xi, yi, zi + 1).isOpaque())) {
                         const tex = @bitCast(i8, desc.texForSide(.North));
                         vertex[i] = Byte4{ x, y, z + 1, tex };
                         i += 1;
@@ -254,10 +250,6 @@ pub const ChunkRender = struct {
     }
 
     pub fn render(self: *@This(), shaderProgram: platform.GLuint) void {
-        if (self.chunk.changed) {
-            self.update();
-        }
-
         if (self.elements == 0) {
             // No voxels in chunk, don't render
             return;

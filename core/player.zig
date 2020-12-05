@@ -5,7 +5,7 @@ const vec2f = Vec2f.init;
 const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const BlockType = @import("./core.zig").chunk.BlockType;
-const Chunk = @import("./core.zig").chunk.Chunk;
+const World = @import("./core.zig").World;
 
 const MOVE_SPEED = 4.5;
 const ACCEL_SPEED = 2.0;
@@ -46,7 +46,7 @@ pub const State = struct {
     lookAngle: Vec2f,
     onGround: bool = false,
 
-    pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, chunk: Chunk) void {
+    pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, world: World) void {
         this.lookAngle = input.lookAngle;
 
         const forward = vec3f(std.math.sin(this.lookAngle.x), 0, std.math.cos(this.lookAngle.x));
@@ -102,7 +102,7 @@ pub const State = struct {
         {
             const min_col_x = new_pos.sub(0.5, 0.5, 0.25).floatToInt(i64);
             const max_col_x = new_pos.add(0.0, 0.25, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
+            var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var top_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
@@ -120,7 +120,7 @@ pub const State = struct {
         {
             const min_col_x = new_pos.sub(0.0, 0.5, 0.25).floatToInt(i64);
             const max_col_x = new_pos.add(0.5, 0.25, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_x, max_col_x);
+            var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var bottom_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
@@ -137,7 +137,7 @@ pub const State = struct {
         {
             const min_col_z = new_pos.sub(0.5, 0.5, 0.25).floatToInt(i64);
             const max_col_z = new_pos.add(0.0, 0.25, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
+            var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var top_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
@@ -155,7 +155,7 @@ pub const State = struct {
         {
             const min_col_z = new_pos.sub(0.0, 0.5, 0.25).floatToInt(i64);
             const max_col_z = new_pos.add(0.5, 0.25, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_z, max_col_z);
+            var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var bottom_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
@@ -175,7 +175,7 @@ pub const State = struct {
             this.onGround = false;
             const min_col_y = new_pos.sub(0.25, 1.5, 0.25).floatToInt(i64);
             const max_col_y = new_pos.add(0.25, 0.0, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_y, max_col_y);
+            var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var top_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
@@ -197,7 +197,7 @@ pub const State = struct {
         {
             const min_col_y = new_pos.sub(0.25, 0.0, 0.25).floatToInt(i64);
             const max_col_y = new_pos.add(0.25, 0.5, 0.25).floatToInt(i64);
-            var rect_block_iter = chunk.iterateRect(min_col_y, max_col_y);
+            var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var bottom_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
                 if (res.block != .Air) {
