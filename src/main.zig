@@ -371,7 +371,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glViewport(0, 0, screen_size_int.x, screen_size_int.y);
     platform.glEnable(platform.GL_POLYGON_OFFSET_FILL);
 
-    platform.glPolygonOffset(1, 1);
+    platform.glPolygonOffset(1, 0.25);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
     chunkRender.render(shaderProgram);
