@@ -51,6 +51,7 @@ var input = Input{};
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 
+var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var other_player_states: std.AutoHashMap(u32, core.player.State) = undefined;
 
@@ -310,6 +311,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .breaking = input.breaking,
     };
 
+    previous_player_state = player_state;
     player_state.update(current_time, delta, player_input, chunkRender.chunk);
 
     try moves.push_back(.{
@@ -344,6 +346,8 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glUseProgram(shaderProgram);
 
+    const render_pos = player_state.position.scale(@floatCast(f32, alpha)).addv(previous_player_state.position.scale(@floatCast(f32, 1 - alpha)));
+
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
@@ -357,7 +361,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const zFar = 1000;
     const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
 
-    const projection = perspective.mul(Mat4f.lookAt(player_state.position, player_state.position.addv(lookat), up));
+    const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up));
 
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
 
@@ -416,7 +420,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
     platform.glDisable(platform.GL_CULL_FACE);
 
-    if (chunkRender.chunk.raycast(player_state.position, camera_angle, 5)) |selected_int| {
+    if (chunkRender.chunk.raycast(render_pos, camera_angle, 5)) |selected_int| {
         const selected = selected_int.intToFloat(f32);
         const box = [24][4]f32{
             .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
