@@ -19,6 +19,7 @@ pub const GL_LINES = c.GL_LINES;
 pub const GL_UNSIGNED_SHORT = c.GL_UNSIGNED_SHORT;
 pub const GL_STATIC_DRAW = c.GL_STATIC_DRAW;
 pub const GL_FLOAT = c.GL_FLOAT;
+pub const GL_DOUBLE = c.GL_DOUBLE;
 pub const GL_UNSIGNED_BYTE = c.GL_UNSIGNED_BYTE;
 pub const GL_TRUE = c.GL_TRUE;
 pub const GL_FALSE = c.GL_FALSE;

@@ -22,10 +22,10 @@ pub const ServerDatagram = union(enum) {
     // TODO: Move this to reliable packet once that distinction exists
     Init: struct {
         /// The entity id for the client's player entity
-        id: u32,
+        id: u64,
     },
     Update: struct {
-        id: u32,
+        id: u64,
         time: f64,
         state: player.State,
     },

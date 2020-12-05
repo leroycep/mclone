@@ -1,9 +1,9 @@
 const std = @import("std");
 const math = @import("math");
-const Vec2f = math.Vec2f;
-const Vec3f = math.Vec3f;
-const vec3f = math.vec3f;
-const Vec3i = math.Vec(3, i32);
+const Vec2f = math.Vec(2, f64);
+const Vec3f = math.Vec(3, f64);
+const vec3f = Vec3f.init;
+const Vec3i = math.Vec(3, i64);
 const VoxelTraversal = math.VoxelTraversal;
 
 pub const CX = 16;
@@ -32,11 +32,11 @@ pub const Chunk = struct {
         };
     }
 
-    pub fn get(self: @This(), x: i32, y: i32, z: i32) BlockType {
+    pub fn get(self: @This(), x: i64, y: i64, z: i64) BlockType {
         return self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)];
     }
 
-    pub fn set(self: *@This(), x: i32, y: i32, z: i32, blockType: BlockType) void {
+    pub fn set(self: *@This(), x: i64, y: i64, z: i64, blockType: BlockType) void {
         self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = blockType;
         self.changed = true;
     }
@@ -64,7 +64,7 @@ pub const Chunk = struct {
         }
     }
 
-    pub fn raycast(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f32) ?math.Vec(3, u8) {
+    pub fn raycast(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?math.Vec(3, u8) {
         const lookat = vec3f(
             std.math.sin(angle.x) * std.math.cos(angle.y),
             std.math.sin(angle.y),
@@ -74,7 +74,7 @@ pub const Chunk = struct {
         const end = origin.addv(lookat.scale(max_len));
 
         var iterations_left = @floatToInt(usize, max_len * 1.5);
-        var voxel_iter = VoxelTraversal.init(start, end);
+        var voxel_iter = VoxelTraversal(f64, i64).init(start, end);
         while (voxel_iter.next()) |voxel_pos| {
             if (iterations_left == 0) break;
             iterations_left -= 1;
@@ -91,7 +91,7 @@ pub const Chunk = struct {
         return null;
     }
 
-    pub fn raycastLastEmpty(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f32) ?math.Vec(3, u8) {
+    pub fn raycastLastEmpty(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?math.Vec(3, u8) {
         const lookat = vec3f(
             std.math.sin(angle.x) * std.math.cos(angle.y),
             std.math.sin(angle.y),
@@ -101,7 +101,7 @@ pub const Chunk = struct {
         const end = origin.addv(lookat.scale(max_len));
 
         var iterations_left = @floatToInt(usize, max_len * 1.5);
-        var voxel_iter = VoxelTraversal.init(start, end);
+        var voxel_iter = VoxelTraversal(f64, i64).init(start, end);
         var previous_voxel: ?math.Vec(3, u8) = null;
         while (voxel_iter.next()) |voxel_pos| {
             if (iterations_left == 0) break;

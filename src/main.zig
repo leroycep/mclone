@@ -3,13 +3,13 @@ const builtin = @import("builtin");
 const platform = @import("platform");
 const util = @import("util");
 const math = @import("math");
-const Vec3f = math.Vec3f;
-const vec3f = math.vec3f;
-const Vec2f = math.Vec2f;
-const vec2f = math.vec2f;
-const Vec2i = math.Vec2i;
-const vec2i = math.vec2i;
-const Mat4f = math.Mat4f;
+const Vec3f = math.Vec(3, f64);
+const vec3f = Vec3f.init;
+const Vec2f = math.Vec(2, f64);
+const vec2f = Vec2f.init;
+const Vec2i = math.Vec(2, i64);
+const vec2i = Vec2i.init;
+const Mat4f = math.Mat4(f64);
 const pi = std.math.pi;
 const OBB = collision.OBB;
 const core = @import("core");
@@ -37,18 +37,18 @@ var cursor_vbo: platform.GLuint = undefined;
 var tilesetTex: platform.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
-var client_id: u32 = undefined;
+var client_id: u64 = undefined;
 
 const Input = struct {
-    left: f32 = 0,
-    right: f32 = 0,
-    forward: f32 = 0,
-    backward: f32 = 0,
-    up: f32 = 0,
-    down: f32 = 0,
-    breaking: ?math.Vec(3, i32) = null,
-    placing: ? struct {
-        pos: math.Vec(3, i32),
+    left: f64 = 0,
+    right: f64 = 0,
+    forward: f64 = 0,
+    backward: f64 = 0,
+    up: f64 = 0,
+    down: f64 = 0,
+    breaking: ?math.Vec(3, i64) = null,
+    placing: ?struct {
+        pos: math.Vec(3, i64),
         block: BlockType,
     } = null,
 };
@@ -58,7 +58,7 @@ var camera_angle = vec2f(0, 0);
 
 var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
-var other_player_states: std.AutoHashMap(u32, core.player.State) = undefined;
+var other_player_states: std.AutoHashMap(u64, core.player.State) = undefined;
 
 const Move = struct {
     time: f64,
@@ -121,7 +121,7 @@ pub fn onInit(context: *platform.Context) !void {
     socket.setOnMessage(onSocketMessage);
 
     moves = util.ArrayDeque(Move).init(context.alloc);
-    other_player_states = std.AutoHashMap(u32, core.player.State).init(context.alloc);
+    other_player_states = std.AutoHashMap(u64, core.player.State).init(context.alloc);
 
     std.log.warn("end app init", .{});
 }
@@ -191,7 +191,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         .MouseMotion => |mouse_move| {
             if (!mouse_captured) return;
             const MOUSE_SPEED = 0.005;
-            camera_angle = camera_angle.subv(mouse_move.rel.intToFloat(f32).scale(MOUSE_SPEED));
+            camera_angle = camera_angle.subv(mouse_move.rel.intToFloat(f64).scale(MOUSE_SPEED));
             if (camera_angle.x < -std.math.pi)
                 camera_angle.x += std.math.pi * 2.0;
             if (camera_angle.x > std.math.pi)
@@ -204,14 +204,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
                 if (chunkRender.chunk.raycast(player_state.position, camera_angle, 5)) |block_pos| {
-                    input.breaking = block_pos.intCast(i32);
+                    input.breaking = block_pos.intCast(i64);
                     //chunkRender.chunk.set(block.x, block.y, block.z, .Air);
                 }
             },
             .Right => {
                 if (chunkRender.chunk.raycastLastEmpty(player_state.position, camera_angle, 5)) |block_pos| {
                     input.placing = .{
-                        .pos = block_pos.intCast(i32),
+                        .pos = block_pos.intCast(i64),
                         .block = .Stone,
                     };
                 }
@@ -328,7 +328,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
                 .block = placing.block,
             }
         else
-                null,
+            null,
     };
 
     previous_player_state = player_state;
@@ -367,7 +367,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glUseProgram(shaderProgram);
 
-    const render_pos = player_state.position.scale(@floatCast(f32, alpha)).addv(previous_player_state.position.scale(@floatCast(f32, 1 - alpha)));
+    const render_pos = player_state.position.scale(alpha).addv(previous_player_state.position.scale(1 - alpha));
 
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
@@ -375,14 +375,14 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const up = right.cross(lookat);
 
     const screen_size_int = context.getScreenSize();
-    const screen_size = screen_size_int.intToFloat(f32);
+    const screen_size = screen_size_int.intToFloat(f64);
 
     const aspect = screen_size.x / screen_size.y;
     const zNear = 0.01;
     const zFar = 1000;
     const perspective = Mat4f.perspective(std.math.tau / 6.0, aspect, zNear, zFar);
 
-    const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up));
+    const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
 
@@ -405,7 +405,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     var other_player_states_iter = other_player_states.iterator();
     while (other_player_states_iter.next()) |entry| {
-        const pos = entry.value.position;
+        const pos = entry.value.position.floatCast(f32);
         const box = [24][4]f32{
             .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
             .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
@@ -483,7 +483,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     };
 
     platform.glDisable(platform.GL_DEPTH_TEST);
-    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.v);
+    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.floatCast(f32).v);
     platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
 
     platform.glDrawArrays(platform.GL_LINES, 0, cross.len);

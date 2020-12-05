@@ -92,7 +92,7 @@ pub fn main() !void {
     var num_players: usize = 0;
 
     var running = true;
-    var next_id: u32 = 0;
+    var next_id: u64 = 0;
 
     while (running) {
         var poll_count = try std.os.poll(pollfds.items, -1);
@@ -244,7 +244,7 @@ const Client = struct {
     connection: NonblockingStreamServer.Connection,
     frames: protocol.Frames = protocol.Frames.init(),
 
-    id: u32,
+    id: u64,
     currentTime: f64,
     state: core.player.State,
 
