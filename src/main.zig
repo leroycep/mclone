@@ -23,8 +23,8 @@ const net = platform.net;
 
 const DEG_TO_RAD = std.math.pi / 180.0;
 
-const VERT_CODE = @embedFile("glescraft.vert");
-const FRAG_CODE = @embedFile("glescraft.frag");
+const chunk_vert_code = @embedFile("chunk_render.vert");
+const chunk_frag_code = @embedFile("chunk_render.frag");
 
 const line_vert_code = @embedFile("line.vert");
 const line_frag_code = @embedFile("line.frag");
@@ -86,11 +86,11 @@ pub fn main() !void {
 
 pub fn onInit(context: *platform.Context) !void {
     var vertShader = platform.glCreateShader(platform.GL_VERTEX_SHADER);
-    platform.glShaderSource(vertShader, VERT_CODE);
+    platform.glShaderSource(vertShader, chunk_vert_code);
     platform.glCompileShader(vertShader);
 
     var fragShader = platform.glCreateShader(platform.GL_FRAGMENT_SHADER);
-    platform.glShaderSource(fragShader, FRAG_CODE);
+    platform.glShaderSource(fragShader, chunk_frag_code);
     platform.glCompileShader(fragShader);
 
     shaderProgram = platform.glCreateProgram();
@@ -238,7 +238,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     if (raycast.prev) |block_pos| {
                         if (item == .Wood) {
-                            const orient = @import("./chunk.zig").Orientation.init;
+                            const orient = @import("./chunk_render.zig").Orientation.init;
                             const orientation = switch (raycast.side.?) {
                                 .Top => orient(2, 0, 0),
                                 .Bottom => orient(0, 0, 0),
@@ -351,7 +351,7 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             gop.entry.value = update_data.state;
         },
         .ChunkUpdate => |chunk_update| {
-            std.log.debug("loading chunk: {}, {}, {}\n", .{chunk_update.pos.x, chunk_update.pos.y, chunk_update.pos.z});
+            std.log.debug("loading chunk: {}, {}, {}\n", .{ chunk_update.pos.x, chunk_update.pos.y, chunk_update.pos.z });
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
         },
     }
@@ -454,88 +454,88 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
     platform.glEnableVertexAttribArray(attribute_coord);
 
-        var other_player_states_iter = other_player_states.iterator();
-        while (other_player_states_iter.next()) |entry| {
-            const pos = entry.value.position.floatCast(f32);
-            const box = [24][4]f32{
-                .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-                .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-                .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-                .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-            };
-
-            platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
-
-            platform.glDrawArrays(platform.GL_LINES, 0, 24);
-        }
-
-        platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
-        platform.glDisable(platform.GL_CULL_FACE);
-
-        if (worldRenderer.world.raycast(render_pos, camera_angle, 5)) |raycast| {
-            const selected = raycast.pos.intToFloat(f32);
-            const box = [24][4]f32{
-                .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-                .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-                .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-                .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-            };
-
-            platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
-
-            platform.glDrawArrays(platform.GL_LINES, 0, 24);
-        }
-
-        const cross = [4][4]f32{
-            .{ -0.05, 0, -2, 10 },
-            .{ 0.05, 0, -2, 10 },
-            .{ 0, -0.05, -2, 10 },
-            .{ 0, 0.05, -2, 10 },
+    var other_player_states_iter = other_player_states.iterator();
+    while (other_player_states_iter.next()) |entry| {
+        const pos = entry.value.position.floatCast(f32);
+        const box = [24][4]f32{
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
+            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
         };
 
-        platform.glDisable(platform.GL_DEPTH_TEST);
-        platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.floatCast(f32).v);
-        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
+        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
 
-        platform.glDrawArrays(platform.GL_LINES, 0, cross.len);
+        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+    }
+
+    platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
+    platform.glDisable(platform.GL_CULL_FACE);
+
+    if (worldRenderer.world.raycast(render_pos, camera_angle, 5)) |raycast| {
+        const selected = raycast.pos.intToFloat(f32);
+        const box = [24][4]f32{
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
+            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
+        };
+
+        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
+
+        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+    }
+
+    const cross = [4][4]f32{
+        .{ -0.05, 0, -2, 10 },
+        .{ 0.05, 0, -2, 10 },
+        .{ 0, -0.05, -2, 10 },
+        .{ 0, 0.05, -2, 10 },
+    };
+
+    platform.glDisable(platform.GL_DEPTH_TEST);
+    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.floatCast(f32).v);
+    platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
+
+    platform.glDrawArrays(platform.GL_LINES, 0, cross.len);
 }

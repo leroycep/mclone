@@ -6,7 +6,7 @@ const Chunk = core.chunk.Chunk;
 const math = @import("math");
 const Vec3i = math.Vec(3, i64);
 const vec3i = Vec3i.init;
-const ChunkRender = @import("./chunk.zig").ChunkRender;
+const ChunkRender = @import("./chunk_render.zig").ChunkRender;
 const platform = @import("platform");
 
 pub const WorldRenderer = struct {

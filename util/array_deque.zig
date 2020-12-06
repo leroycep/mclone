@@ -56,7 +56,7 @@ pub fn ArrayDeque(comptime T: type) type {
             if (self.head == self.tail) {
                 return;
             }
-            
+
             const amount = std.math.min(self.len(), amount_wanted);
 
             var next = self.tail + amount;
@@ -77,7 +77,7 @@ pub fn ArrayDeque(comptime T: type) type {
             }
             return null;
         }
-        
+
         pub fn idxMut(self: *const @This(), i: usize) ?*T {
             if (i >= self.buffer.len) {
                 return null;

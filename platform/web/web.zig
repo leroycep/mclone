@@ -36,7 +36,7 @@ pub fn warn(comptime fmt: []const u8, args: anytype) void {
 pub const Context = struct {
     alloc: *std.mem.Allocator,
     running: bool = true,
-    
+
     pub fn getScreenSize(self: @This()) Vec2i {
         return webGetScreenSize();
     }
@@ -53,7 +53,6 @@ pub const Context = struct {
         requestFullscreen();
     }
 };
-
 
 // TODO: Wrangle
 const platform = @import("../platform.zig");
