@@ -34,7 +34,7 @@ pub const Input = struct {
     breaking: ?math.Vec(3, i64),
 
     /// The block the player is placing
-    placing: ? struct {
+    placing: ?struct {
         pos: math.Vec(3, i64),
         block: Block,
     },
@@ -70,7 +70,7 @@ pub const State = struct {
             break :calc_accelDir vec2f(absAccelDir.x, absAccelDir.z);
         } else vec2f(0, 1);
         const maxVel = std.math.clamp(input.maxVel, 0, 1) * MOVE_SPEED;
-        var accel = accelDir.scale(maxVel * ACCEL_COEFFICIENT * fric * ACCEL_SPEED *  deltaTime);
+        var accel = accelDir.scale(maxVel * ACCEL_COEFFICIENT * fric * ACCEL_SPEED * deltaTime);
 
         var fricVel = hvel.scale(fric * FRICTION_COEFFICIENT * deltaTime);
 
