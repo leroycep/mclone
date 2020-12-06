@@ -170,8 +170,8 @@ fn vertexAO(side1: bool, side2: bool, corner: bool) u2 {
     return 3 - (s1 + s2 + co);
 }
 
-fn blockDescFor(block: BlockType) BlockDescription {
-    return DESCRIPTIONS[@enumToInt(block)];
+fn blockDescFor(block: core.chunk.Block) BlockDescription {
+    return DESCRIPTIONS[@enumToInt(block.blockType)];
 }
 
 pub const ChunkRender = struct {
