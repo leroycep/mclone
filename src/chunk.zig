@@ -220,6 +220,13 @@ pub const ChunkRender = struct {
                         continue;
                     }
 
+                    // const topBlock = blockDescFor(world.getv(global_pos.add(0, 1, 0)));
+                    // const bottomBlock = blockDescFor(world.getv(global_pos.add(0, -1, 0)));
+                    // const northBlock = blockDescFor(world.getv(global_pos.add(0, 0, 1)));
+                    // const southBlock = blockDescFor(world.getv(global_pos.add(0, 0, -1)));
+                    // const eastBlock = blockDescFor(world.getv(global_pos.add(1, 0, 0)));
+                    // const westBlock = blockDescFor(world.getv(global_pos.add(-1, 0, 0)));
+
                     // View from negative x
                     if (xi == 0 or (xi > 0 and !descFor(chunk, xi - 1, yi, zi).isOpaque())) {
                         const tex = @bitCast(i8, desc.texForSide(.West, data));

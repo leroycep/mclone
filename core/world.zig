@@ -29,45 +29,53 @@ pub const World = struct {
         }
         // Generate the chunk
         var chunk = Chunk.init();
-        chunk.layer(0, .Stone);
-        chunk.layer(1, .Stone);
-        chunk.layer(2, .Stone);
-        chunk.layer(3, .Dirt);
-        chunk.layer(4, .Dirt);
-        chunk.layer(5, .Dirt);
-        chunk.layer(6, .Grass);
-        chunk.blk[0][1][0] = .{ .blockType = .IronOre };
-        chunk.blk[0][2][0] = .{ .blockType = .CoalOre };
-        chunk.blk[0][3][0] = .{ .blockType = .Air };
+        if (chunkPos.y == 7) {
+            chunk.layer(0, .Stone);
+            chunk.layer(1, .Stone);
+            chunk.layer(2, .Stone);
+            chunk.layer(3, .Dirt);
+            chunk.layer(4, .Dirt);
+            chunk.layer(5, .Dirt);
+            chunk.layer(6, .Grass);
+            chunk.blk[0][1][0] = .{ .blockType = .IronOre };
+            chunk.blk[0][2][0] = .{ .blockType = .CoalOre };
+            chunk.blk[0][3][0] = .{ .blockType = .Air };
 
-        chunk.blk[7][7][7] = .{ .blockType = .Wood };
-        chunk.blk[7][8][7] = .{ .blockType = .Wood };
-        chunk.blk[7][9][7] = .{ .blockType = .Wood };
-        chunk.blk[7][10][7] = .{ .blockType = .Wood };
-        chunk.blk[7][11][7] = .{ .blockType = .Wood };
-        chunk.blk[7][12][7] = .{ .blockType = .Wood };
-        chunk.blk[7][13][7] = .{ .blockType = .Wood };
-        chunk.blk[7][14][7] = .{ .blockType = .Leaf };
+            chunk.blk[7][7][7] = .{ .blockType = .Wood };
+            chunk.blk[7][8][7] = .{ .blockType = .Wood };
+            chunk.blk[7][9][7] = .{ .blockType = .Wood };
+            chunk.blk[7][10][7] = .{ .blockType = .Wood };
+            chunk.blk[7][11][7] = .{ .blockType = .Wood };
+            chunk.blk[7][12][7] = .{ .blockType = .Wood };
+            chunk.blk[7][13][7] = .{ .blockType = .Wood };
+            chunk.blk[7][14][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[8][10][7] = .{ .blockType = .Leaf };
-        chunk.blk[8][11][7] = .{ .blockType = .Leaf };
-        chunk.blk[8][12][7] = .{ .blockType = .Leaf };
-        chunk.blk[8][13][7] = .{ .blockType = .Leaf };
+            chunk.blk[8][10][7] = .{ .blockType = .Leaf };
+            chunk.blk[8][11][7] = .{ .blockType = .Leaf };
+            chunk.blk[8][12][7] = .{ .blockType = .Leaf };
+            chunk.blk[8][13][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[6][10][7] = .{ .blockType = .Leaf };
-        chunk.blk[6][11][7] = .{ .blockType = .Leaf };
-        chunk.blk[6][12][7] = .{ .blockType = .Leaf };
-        chunk.blk[6][13][7] = .{ .blockType = .Leaf };
+            chunk.blk[6][10][7] = .{ .blockType = .Leaf };
+            chunk.blk[6][11][7] = .{ .blockType = .Leaf };
+            chunk.blk[6][12][7] = .{ .blockType = .Leaf };
+            chunk.blk[6][13][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[7][10][8] = .{ .blockType = .Leaf };
-        chunk.blk[7][11][8] = .{ .blockType = .Leaf };
-        chunk.blk[7][12][8] = .{ .blockType = .Leaf };
-        chunk.blk[7][13][8] = .{ .blockType = .Leaf };
+            chunk.blk[7][10][8] = .{ .blockType = .Leaf };
+            chunk.blk[7][11][8] = .{ .blockType = .Leaf };
+            chunk.blk[7][12][8] = .{ .blockType = .Leaf };
+            chunk.blk[7][13][8] = .{ .blockType = .Leaf };
 
-        chunk.blk[7][10][6] = .{ .blockType = .Leaf };
-        chunk.blk[7][11][6] = .{ .blockType = .Leaf };
-        chunk.blk[7][12][6] = .{ .blockType = .Leaf };
-        chunk.blk[7][13][6] = .{ .blockType = .Leaf };
+            chunk.blk[7][10][6] = .{ .blockType = .Leaf };
+            chunk.blk[7][11][6] = .{ .blockType = .Leaf };
+            chunk.blk[7][12][6] = .{ .blockType = .Leaf };
+            chunk.blk[7][13][6] = .{ .blockType = .Leaf };
+        } else if (chunkPos.y == 0) {
+            chunk.fill(.IronOre);
+        } else if (chunkPos.y < 7) {
+            chunk.fill(.Stone);
+            chunk.layer(3, .IronOre);
+            chunk.layer(11, .CoalOre);
+        }
 
         try this.chunks.put(chunkPos, chunk);
     }

@@ -49,14 +49,11 @@ pub fn main() !void {
 
     // Generate world
     var world = try core.World.init(alloc);
-    try world.ensureChunkLoaded(math.Vec(3, i64).init(0, 0, 0));
-    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 0));
-    try world.ensureChunkLoaded(math.Vec(3, i64).init(0, 0, 1));
-    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 0, 1));
-    try world.loadChunkFromMemory(math.Vec(3, i64).init(0, 1, 0), core.chunk.Chunk.init());
-    try world.loadChunkFromMemory(math.Vec(3, i64).init(1, 1, 0), core.chunk.Chunk.init());
-    try world.loadChunkFromMemory(math.Vec(3, i64).init(0, 1, 1), core.chunk.Chunk.init());
-    try world.ensureChunkLoaded(math.Vec(3, i64).init(1, 1, 1));
+    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 127));
+    // try world.ensureChunkLoaded(math.Vec(3, i64).init(128, 127, 127));
+    // try world.ensureChunkLoaded(math.Vec(3, i64).init(126, 127, 127));
+    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 128));
+    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 126));
 
     var pos = math.Vec(3, i64).init(0, 0, 0);
     while (pos.z < 16) {
@@ -111,7 +108,7 @@ pub fn main() !void {
                     .id = next_id,
                     .currentTime = 0,
                     .state = .{
-                        .position = .{ .x = 1, .y = 14, .z = 1 },
+                        .position = .{ .x = 7 * 16 + 7, .y = 8 * 16, .z = 7 * 16 + 7},
                         .velocity = .{ .x = 0, .y = 0, .z = 0 },
                         .lookAngle = .{ .x = 0, .y = 0 },
                     },
@@ -135,10 +132,10 @@ pub fn main() !void {
 
                     chunk_offset.x += 1;
                     if (chunk_offset.x > 1) {
-                        chunk_offset.x = 0;
+                        chunk_offset.x = -1;
                         chunk_offset.y += 1;
                         if (chunk_offset.y > 1) {
-                            chunk_offset.y = 0;
+                            chunk_offset.y = -1;
                             chunk_offset.z += 1;
                         }
                     }
@@ -223,10 +220,10 @@ pub fn main() !void {
 
                                         chunk_offset.x += 1;
                                         if (chunk_offset.x > 1) {
-                                            chunk_offset.x = 0;
+                                            chunk_offset.x = -1;
                                             chunk_offset.y += 1;
                                             if (chunk_offset.y > 1) {
-                                                chunk_offset.y = 0;
+                                                chunk_offset.y = -1;
                                                 chunk_offset.z += 1;
                                             }
                                         }
