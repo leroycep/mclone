@@ -50,10 +50,11 @@ const Input = struct {
     placing: ?struct {
         pos: math.Vec(3, i64),
         block: BlockType,
+        data: u16 = 0,
     } = null,
 };
 var input = Input{};
-var item : BlockType = .Stone;
+var item: BlockType = .Stone;
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 
@@ -219,10 +220,27 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .Right => {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     if (raycast.prev) |block_pos| {
-                        input.placing = .{
-                            .pos = block_pos,
-                            .block = item,
-                        };
+                        if (item == .Wood) {
+                            const orient = @import("./chunk.zig").Orientation.init;
+                            const orientation = switch(raycast.side.?){
+                                .Top => orient(2, 0, 0),
+                                .Bottom => orient(0, 0, 0),
+                                .North => orient(1, 0, 0),
+                                .East => orient(1, 1, 0),
+                                .South => orient(3, 0, 0),
+                                .West => orient(3, 1, 0),
+                            };
+                            input.placing = .{
+                                .pos = block_pos,
+                                .block = item,
+                                .data = orientation.toU6(),
+                            };
+                        } else {
+                            input.placing = .{
+                                .pos = block_pos,
+                                .block = item,
+                            };
+                        }
                     }
                 }
             },
@@ -334,7 +352,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .placing = if (input.placing) |placing|
             .{
                 .pos = placing.pos,
-                .block = placing.block,
+                .block = .{ .blockType = placing.block, .blockData = placing.data },
             }
         else
             null,

@@ -1,6 +1,7 @@
 const std = @import("std");
 const core = @import("core");
 const BlockType = core.chunk.BlockType;
+const Side = core.chunk.Side;
 const Chunk = core.chunk.Chunk;
 const platform = @import("platform");
 
@@ -11,13 +12,59 @@ const CX = core.chunk.CX;
 const CY = core.chunk.CY;
 const CZ = core.chunk.CZ;
 
-const Side = enum {
-    Top,
-    Bottom,
-    North,
-    East,
-    South,
-    West,
+pub const Orientation = struct {
+    x: u2,
+    y: u2,
+    z: u2,
+
+    pub fn init(x: u2, y: u2, z: u2) @This() {
+        return .{
+            .x = x,
+            .y = y,
+            .z = z,
+        };
+    }
+
+    pub fn fromU6(b: u6) @This() {
+        return .{
+            .x = @intCast(u2, (b >> 0) & 0b11),
+            .y = @intCast(u2, (b >> 2) & 0b11),
+            .z = @intCast(u2, (b >> 4) & 0b11),
+        };
+    }
+
+    pub fn toU6(this: @This()) u6 {
+        return ((@intCast(u6, this.x) << 0) | (@intCast(u6, this.y) << 2) | (@intCast(u6, this.z) << 4));
+    }
+
+    pub fn fromSide(side: Side) @This() {
+        return switch (side) {
+            .Top => init(1, 0, 0),
+            .Bottom => init(3, 0, 0),
+            .North => init(0, 0, 0),
+            .East => init(0, 1, 0),
+            .South => init(0, 2, 0),
+            .West => init(0, 3, 0),
+        };
+    }
+
+    pub fn sin(v: u2) i2 {
+        return switch (v) {
+            0 => 0,
+            1 => 1,
+            2 => 0,
+            3 => -1,
+        };
+    }
+
+    pub fn cos(v: u2) i2 {
+        return switch (v) {
+            0 => 1,
+            1 => 0,
+            2 => -1,
+            3 => 0,
+        };
+    }
 };
 
 const BlockDescription = struct {
@@ -31,7 +78,7 @@ const BlockDescription = struct {
         Single: u7,
 
         /// A block with a different texture for each side
-        Multi: [6]u7,
+        Oriented: [6]u7,
     },
 
     pub fn isOpaque(this: @This()) bool {
@@ -42,22 +89,36 @@ const BlockDescription = struct {
         switch (this.rendering) {
             .None => return false,
             .Single => return true,
-            .Multi => return true,
+            .Oriented => return true,
         }
     }
 
-    pub fn texForSide(this: @This(), side: Side) u8 {
+    pub fn texForSide(this: @This(), side: Side, data: u16) u8 {
+        const sin = Orientation.sin;
+        const cos = Orientation.cos;
+
         switch (this.rendering) {
             .None => return 0,
             .Single => |tex| return tex,
-            .Multi => |texs| return switch(side) {
-                .Top    => texs[0],
-                .Bottom => texs[1],
-                .North  => texs[2],
-                .East   => texs[3],
-                .South  => texs[4],
-                .West   => texs[5],
-            }
+            .Oriented => |texs| {
+                const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
+                const orientedSide = switch (side) {
+                    .Top => Side.fromNormal(0, cos(o.x), sin(o.x)),
+                    .Bottom => Side.fromNormal(0, -cos(o.x), sin(o.x)),
+                    .North => Side.fromNormal(-sin(o.y), cos(o.y) * -sin(o.x), cos(o.y) * cos(o.x)),
+                    .East => Side.fromNormal(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+                    .South => Side.fromNormal(sin(o.y), cos(o.y) * sin(o.x), cos(o.y) * cos(o.x)),
+                    .West => Side.fromNormal(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+                };
+                return switch (orientedSide) {
+                    .Top => texs[0],
+                    .Bottom => texs[1],
+                    .North => texs[2],
+                    .East => texs[3],
+                    .South => texs[4],
+                    .West => texs[5],
+                };
+            },
         }
     }
 };
@@ -76,14 +137,14 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .rendering = .{ .Single = 1 },
     };
     descriptions[@enumToInt(BlockType.Grass)] = .{
-        .rendering = .{ .Multi = [6]u7{3, 1, 4, 4, 4, 4}},
+        .rendering = .{ .Oriented = [6]u7{ 3, 1, 4, 4, 4, 4 } },
     };
     descriptions[@enumToInt(BlockType.Wood)] = .{
-        .rendering = .{ .Multi = [6]u7{5, 5, 6, 6, 6, 6}},
+        .rendering = .{ .Oriented = [6]u7{ 5, 5, 6, 6, 6, 6 } },
     };
     descriptions[@enumToInt(BlockType.Leaf)] = .{
         .is_opaque = false,
-        .rendering = .{ .Single = 7},
+        .rendering = .{ .Single = 7 },
     };
     descriptions[@enumToInt(BlockType.CoalOre)] = .{
         .rendering = .{ .Single = 8 },
@@ -115,7 +176,7 @@ pub const ChunkRender = struct {
 
     // Get description for block at coord
     pub fn descFor(chunk: Chunk, x: u8, y: u8, z: u8) BlockDescription {
-        var blockType = chunk.blk[x][y][z];
+        var blockType = chunk.blk[x][y][z].blockType;
         return DESCRIPTIONS[@enumToInt(blockType)];
     }
 
@@ -130,6 +191,7 @@ pub const ChunkRender = struct {
                 var zi: u8 = 0;
                 while (zi < CZ) : (zi += 1) {
                     const desc = descFor(chunk, xi, yi, zi);
+                    const data = chunk.blk[xi][yi][zi].blockData;
 
                     var x = @intCast(i8, xi);
                     var y = @intCast(i8, yi);
@@ -141,7 +203,7 @@ pub const ChunkRender = struct {
 
                     // View from negative x
                     if (xi == 0 or (xi > 0 and !descFor(chunk, xi - 1, yi, zi).isOpaque())) {
-                        const tex = @bitCast(i8, desc.texForSide(.West));
+                        const tex = @bitCast(i8, desc.texForSide(.West, data));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
                         vertex[i] = Byte4{ x, y, z + 1, tex };
@@ -158,7 +220,7 @@ pub const ChunkRender = struct {
 
                     // View from positive x
                     if (xi == CX - 1 or (xi < CX - 1 and !descFor(chunk, xi + 1, yi, zi).isOpaque())) {
-                        const tex = @bitCast(i8, desc.texForSide(.East));
+                        const tex = @bitCast(i8, desc.texForSide(.East, data));
                         vertex[i] = Byte4{ x + 1, y, z, tex };
                         i += 1;
                         vertex[i] = Byte4{ x + 1, y + 1, z, tex };
@@ -175,7 +237,7 @@ pub const ChunkRender = struct {
 
                     // View from negative y
                     if (yi == 0 or (yi > 0 and !descFor(chunk, xi, yi - 1, zi).isOpaque())) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Bottom));
+                        const tex = -@bitCast(i8, desc.texForSide(.Bottom, data));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
                         vertex[i] = Byte4{ x + 1, y, z, tex };
@@ -192,7 +254,7 @@ pub const ChunkRender = struct {
 
                     // View from positive y
                     if (yi == CY - 1 or (yi < CY - 1 and !descFor(chunk, xi, yi + 1, zi).isOpaque())) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Top));
+                        const tex = -@bitCast(i8, desc.texForSide(.Top, data));
                         vertex[i] = Byte4{ x, y + 1, z, tex };
                         i += 1;
                         vertex[i] = Byte4{ x, y + 1, z + 1, tex };
@@ -209,7 +271,7 @@ pub const ChunkRender = struct {
 
                     // View from negative z
                     if (zi == 0 or (zi > 0 and !descFor(chunk, xi, yi, zi - 1).isOpaque())) {
-                        const tex = @bitCast(i8, desc.texForSide(.South));
+                        const tex = @bitCast(i8, desc.texForSide(.South, data));
                         vertex[i] = Byte4{ x, y, z, tex };
                         i += 1;
                         vertex[i] = Byte4{ x, y + 1, z, tex };
@@ -226,7 +288,7 @@ pub const ChunkRender = struct {
 
                     // View from positive z
                     if (zi == CZ - 1 or (zi < CZ - 1 and !descFor(chunk, xi, yi, zi + 1).isOpaque())) {
-                        const tex = @bitCast(i8, desc.texForSide(.North));
+                        const tex = @bitCast(i8, desc.texForSide(.North, data));
                         vertex[i] = Byte4{ x, y, z + 1, tex };
                         i += 1;
                         vertex[i] = Byte4{ x + 1, y, z + 1, tex };

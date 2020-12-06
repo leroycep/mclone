@@ -6,6 +6,8 @@ const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const Vec2f = math.Vec(2, f64);
 const BlockType = @import("./core.zig").chunk.BlockType;
+const Side = @import("./core.zig").chunk.Side;
+const Block = @import("./core.zig").chunk.Block;
 const Chunk = @import("./core.zig").chunk.Chunk;
 const VoxelTraversal = math.VoxelTraversal;
 
@@ -34,38 +36,38 @@ pub const World = struct {
         chunk.layer(4, .Dirt);
         chunk.layer(5, .Dirt);
         chunk.layer(6, .Grass);
-        chunk.blk[0][1][0] = .IronOre;
-        chunk.blk[0][2][0] = .CoalOre;
-        chunk.blk[0][3][0] = .Air;
+        chunk.blk[0][1][0] = .{ .blockType = .IronOre };
+        chunk.blk[0][2][0] = .{ .blockType = .CoalOre };
+        chunk.blk[0][3][0] = .{ .blockType = .Air };
 
-        chunk.blk[7][7][7] = .Wood;
-        chunk.blk[7][8][7] = .Wood;
-        chunk.blk[7][9][7] = .Wood;
-        chunk.blk[7][10][7] = .Wood;
-        chunk.blk[7][11][7] = .Wood;
-        chunk.blk[7][12][7] = .Wood;
-        chunk.blk[7][13][7] = .Wood;
-        chunk.blk[7][14][7] = .Leaf;
+        chunk.blk[7][7][7] = .{ .blockType = .Wood };
+        chunk.blk[7][8][7] = .{ .blockType = .Wood };
+        chunk.blk[7][9][7] = .{ .blockType = .Wood };
+        chunk.blk[7][10][7] = .{ .blockType = .Wood };
+        chunk.blk[7][11][7] = .{ .blockType = .Wood };
+        chunk.blk[7][12][7] = .{ .blockType = .Wood };
+        chunk.blk[7][13][7] = .{ .blockType = .Wood };
+        chunk.blk[7][14][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[8][10][7] = .Leaf;
-        chunk.blk[8][11][7] = .Leaf;
-        chunk.blk[8][12][7] = .Leaf;
-        chunk.blk[8][13][7] = .Leaf;
+        chunk.blk[8][10][7] = .{ .blockType = .Leaf };
+        chunk.blk[8][11][7] = .{ .blockType = .Leaf };
+        chunk.blk[8][12][7] = .{ .blockType = .Leaf };
+        chunk.blk[8][13][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[6][10][7] = .Leaf;
-        chunk.blk[6][11][7] = .Leaf;
-        chunk.blk[6][12][7] = .Leaf;
-        chunk.blk[6][13][7] = .Leaf;
+        chunk.blk[6][10][7] = .{ .blockType = .Leaf };
+        chunk.blk[6][11][7] = .{ .blockType = .Leaf };
+        chunk.blk[6][12][7] = .{ .blockType = .Leaf };
+        chunk.blk[6][13][7] = .{ .blockType = .Leaf };
 
-        chunk.blk[7][10][8] = .Leaf;
-        chunk.blk[7][11][8] = .Leaf;
-        chunk.blk[7][12][8] = .Leaf;
-        chunk.blk[7][13][8] = .Leaf;
+        chunk.blk[7][10][8] = .{ .blockType = .Leaf };
+        chunk.blk[7][11][8] = .{ .blockType = .Leaf };
+        chunk.blk[7][12][8] = .{ .blockType = .Leaf };
+        chunk.blk[7][13][8] = .{ .blockType = .Leaf };
 
-        chunk.blk[7][10][6] = .Leaf;
-        chunk.blk[7][11][6] = .Leaf;
-        chunk.blk[7][12][6] = .Leaf;
-        chunk.blk[7][13][6] = .Leaf;
+        chunk.blk[7][10][6] = .{ .blockType = .Leaf };
+        chunk.blk[7][11][6] = .{ .blockType = .Leaf };
+        chunk.blk[7][12][6] = .{ .blockType = .Leaf };
+        chunk.blk[7][13][6] = .{ .blockType = .Leaf };
 
         try this.chunks.put(chunkPos, chunk);
     }
@@ -74,16 +76,16 @@ pub const World = struct {
         try this.chunks.put(chunkPos, chunk);
     }
 
-    pub fn getv(this: @This(), blockPos: Vec3i) BlockType {
+    pub fn getv(this: @This(), blockPos: Vec3i) Block {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
             return chunk.getv(blockPos.subv(chunkPos.scale(16)));
         } else {
-            return .Air;
+            return .{ .blockType = .Air };
         }
     }
 
-    pub fn setv(this: *@This(), blockPos: Vec3i, blockType: BlockType) void {
+    pub fn setv(this: *@This(), blockPos: Vec3i, blockType: Block) void {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             return entry.value.setv(blockPos.subv(chunkPos.scale(16)), blockType);
@@ -92,6 +94,7 @@ pub const World = struct {
 
     const RaycastResult = struct {
         pos: Vec3i,
+        side: ?Side,
         prev: ?Vec3i,
     };
 
@@ -113,15 +116,23 @@ pub const World = struct {
             iterations_left -= 1;
 
             const block = self.getv(voxel_pos);
-            if (block == .Air) {
+            if (block.blockType == .Air) {
                 prev_voxel = voxel_pos;
                 continue;
             }
 
-            return RaycastResult{ .pos = voxel_pos, .prev = prev_voxel };
+            return RaycastResult{
+                .pos = voxel_pos,
+                .side = if (prev_voxel) |pvoxel| bv: {
+                    const n = voxel_pos.subv(pvoxel);
+                    break :bv Side.fromNormal(@intCast(i2, n.x), @intCast(i2, n.y), @intCast(i2, n.z));
+                } else null,
+                .prev = prev_voxel,
+            };
         }
         return null;
     }
+
     pub const RectIterator = struct {
         world: *const World,
         min: Vec3i,
@@ -130,7 +141,7 @@ pub const World = struct {
 
         pub const Result = struct {
             pos: Vec3i,
-            block: BlockType,
+            block: Block,
         };
 
         pub fn next(this: *@This()) ?Result {

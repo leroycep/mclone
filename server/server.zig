@@ -19,7 +19,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const alloc = &gpa.allocator;
 
-    const localhost = try Address.parseIp("127.0.0.1", 5949);
+    const localhost = try Address.parseIp("0.0.0.0", 5949);
 
     var server = NonblockingStreamServer.init(.{ .reuse_address = true });
     defer server.deinit();
@@ -191,7 +191,7 @@ pub fn main() !void {
                                 });
 
                                 if (update.input.breaking) |block_pos| {
-                                    world.setv(block_pos, .Air);
+                                    world.setv(block_pos, .{ .blockType = .Air });
                                     const chunk_pos = block_pos.scaleDivFloor(16);
                                     if (world.chunks.get(chunk_pos)) |chunk| {
                                         broadcastPacket(alloc, &clients, ServerDatagram{

@@ -21,32 +21,56 @@ pub const BlockType = enum(u8) {
     IronOre,
 };
 
+pub const Block = struct {
+    blockType: BlockType,
+    blockData: u16 = 0,
+};
+
+pub const Side = enum(u3) {
+    Top = 0,
+    Bottom = 1,
+    North = 2,
+    East = 3,
+    South = 4,
+    West = 5,
+
+    pub fn fromNormal(x: i2, y: i2, z: i2) @This() {
+        if (x == 0 and y == 0 and z == 1) return .North // so zig fmt doesn't eat the newlines
+        else if (x == 1 and y == 0 and z == 0) return .East //
+        else if (x == 0 and y == 0 and z == -1) return .South //
+        else if (x == -1 and y == 0 and z == 0) return .West //
+        else if (x == 0 and y == 1 and z == 0) return .Top //
+        else if (x == 0 and y == -1 and z == 0) return .Bottom //
+        else unreachable;
+    }
+};
+
 pub const Chunk = struct {
-    blk: [CX][CY][CZ]BlockType,
+    blk: [CX][CY][CZ]Block,
     changed: bool,
 
     pub fn init() @This() {
         return @This(){
-            .blk = std.mem.zeroes([CX][CY][CZ]BlockType),
+            .blk = std.mem.zeroes([CX][CY][CZ]Block),
             .changed = true,
         };
     }
 
-    pub fn get(self: @This(), x: i64, y: i64, z: i64) BlockType {
+    pub fn get(self: @This(), x: i64, y: i64, z: i64) Block {
         return self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)];
     }
 
-    pub fn getv(self: @This(), pos: Vec3i) BlockType {
+    pub fn getv(self: @This(), pos: Vec3i) Block {
         return self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)];
     }
 
-    pub fn set(self: *@This(), x: i64, y: i64, z: i64, blockType: BlockType) void {
-        self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = blockType;
+    pub fn set(self: *@This(), x: i64, y: i64, z: i64, block: Block) void {
+        self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = block;
         self.changed = true;
     }
 
-    pub fn setv(self: *@This(), pos: Vec3i, blockType: BlockType) void {
-        self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)] = blockType;
+    pub fn setv(self: *@This(), pos: Vec3i, block: Block) void {
+        self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)] = block;
         self.changed = true;
     }
 
@@ -57,7 +81,7 @@ pub const Chunk = struct {
             while (yi < CY) : (yi += 1) {
                 var zi: u8 = 0;
                 while (zi < CZ) : (zi += 1) {
-                    self.blk[xi][yi][zi] = blockType;
+                    self.blk[xi][yi][zi] = .{ .blockType = blockType };
                 }
             }
         }
@@ -68,7 +92,7 @@ pub const Chunk = struct {
         while (xi < CX) : (xi += 1) {
             var zi: u8 = 0;
             while (zi < CZ) : (zi += 1) {
-                self.blk[xi][y][zi] = blockType;
+                self.blk[xi][y][zi] = .{ .blockType = blockType };
             }
         }
     }
