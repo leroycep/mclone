@@ -346,7 +346,6 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             gop.entry.value = update_data.state;
         },
         .ChunkUpdate => |chunk_update| {
-            std.log.debug("loading chunk: {}, {}, {}\n", .{ chunk_update.pos.x, chunk_update.pos.y, chunk_update.pos.z });
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
         },
     }
