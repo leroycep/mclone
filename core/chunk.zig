@@ -5,53 +5,27 @@ const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const Vec3i = math.Vec(3, i64);
 const VoxelTraversal = math.VoxelTraversal;
+const Block = @import("./block.zig").Block;
+const BlockType = @import("./block.zig").BlockType;
 
 pub const CX = 16;
 pub const CY = 16;
 pub const CZ = 16;
 
-pub const BlockType = enum(u8) {
-    Air,
-    Stone,
-    Dirt,
-    Grass,
-    Wood,
-    Leaf,
-    CoalOre,
-    IronOre,
-};
-
-pub const Block = struct {
-    blockType: BlockType,
-    blockData: u16 = 0,
-};
-
-pub const Side = enum(u3) {
-    Top = 0,
-    Bottom = 1,
-    North = 2,
-    East = 3,
-    South = 4,
-    West = 5,
-
-    pub fn fromNormal(x: i2, y: i2, z: i2) @This() {
-        if (x == 0 and y == 0 and z == 1) return .North // so zig fmt doesn't eat the newlines
-        else if (x == 1 and y == 0 and z == 0) return .East //
-        else if (x == 0 and y == 0 and z == -1) return .South //
-        else if (x == -1 and y == 0 and z == 0) return .West //
-        else if (x == 0 and y == 1 and z == 0) return .Top //
-        else if (x == 0 and y == -1 and z == 0) return .Bottom //
-        else unreachable;
-    }
+pub const Light = struct {
+    sunlight: u8,
+    torchlight: u8,
 };
 
 pub const Chunk = struct {
     blk: [CX][CY][CZ]Block,
+    light: [CX][CY][CZ]Light,
     changed: bool,
 
     pub fn init() @This() {
         return @This(){
             .blk = std.mem.zeroes([CX][CY][CZ]Block),
+            .light = std.mem.zeroes([CX][CY][CZ]Light),
             .changed = true,
         };
     }
@@ -64,6 +38,22 @@ pub const Chunk = struct {
         return self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)];
     }
 
+    pub fn getSunlight(self: @This(), x: i64, y: i64, z: i64) u4 {
+        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].sunlight;
+    }
+
+    pub fn getSunlightv(self: @This(), pos: Vec3i) u4 {
+        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].sunlight;
+    }
+
+    pub fn getTorchlight(self: @This(), x: i64, y: i64, z: i64) u4 {
+        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].torchlight;
+    }
+
+    pub fn getTorchlightv(self: @This(), pos: Vec3i) u4 {
+        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].torchlight;
+    }
+
     pub fn set(self: *@This(), x: i64, y: i64, z: i64, block: Block) void {
         self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = block;
         self.changed = true;
@@ -71,6 +61,26 @@ pub const Chunk = struct {
 
     pub fn setv(self: *@This(), pos: Vec3i, block: Block) void {
         self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)] = block;
+        self.changed = true;
+    }
+
+    pub fn setSunlight(self: *@This(), x: i64, y: i64, z: i64, level: u4) void {
+        self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].sunlight = level;
+        self.changed = true;
+    }
+
+    pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u4) void {
+        self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].sunlight = level;
+        self.changed = true;
+    }
+
+    pub fn setTorchlight(self: *@This(), x: i64, y: i64, z: i64, level: u4) void {
+        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].torchlight = level;
+        self.changed = true;
+    }
+
+    pub fn setTorchlightv(self: *@This(), pos: Vec3i, level: u4) void {
+        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].torchlight = level;
         self.changed = true;
     }
 

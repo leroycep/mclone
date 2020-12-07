@@ -1,15 +1,18 @@
 const std = @import("std");
 const math = @import("math");
+const util = @import("util");
 const Vec3i = math.Vec(3, i64);
 const vec3i = Vec3i.init;
 const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const Vec2f = math.Vec(2, f64);
-const BlockType = @import("./core.zig").chunk.BlockType;
-const Side = @import("./core.zig").chunk.Side;
-const Block = @import("./core.zig").chunk.Block;
-const Chunk = @import("./core.zig").chunk.Chunk;
+const core = @import("./core.zig");
+const BlockType = core.block.BlockType;
+const Side = core.block.Side;
+const Block = core.block.Block;
+const Chunk = core.chunk.Chunk;
 const VoxelTraversal = math.VoxelTraversal;
+const ArrayDeque = util.ArrayDeque;
 
 pub const World = struct {
     allocator: *std.mem.Allocator,
@@ -100,6 +103,14 @@ pub const World = struct {
         }
     }
 
+    pub fn isOpaquev(this: *const @This(), blockPos: Vec3i) bool {
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.get(chunkPos)) |chunk| {
+            return core.block.describe(chunk.getv(blockPos.subv(chunkPos.scale(16)))).isOpaque();
+        }
+        return false;
+    }
+
     const RaycastResult = struct {
         pos: Vec3i,
         side: ?Side,
@@ -181,5 +192,19 @@ pub const World = struct {
             .max = max,
             .current = min,
         };
+    }
+
+    pub fn placeLightv(self: *@This(), alloc: *std.Allocator, placePos: Vec3i) void {
+        self.setv(pos, .Torch);
+        self.setSunlightv(pos, 15);
+        var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
+
+        lightBfsQueue.push(placePos);
+
+        while (lightBfsQueue.len() != 0) {
+            var pos = lightBfsQueue.pop();
+
+            // if (self.getv(pos.sub(-1, 0, 0)).)
+        }
     }
 };

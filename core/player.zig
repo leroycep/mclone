@@ -4,7 +4,7 @@ const Vec2f = math.Vec(2, f64);
 const vec2f = Vec2f.init;
 const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
-const Block = @import("./core.zig").chunk.Block;
+const Block = @import("./core.zig").block.Block;
 const World = @import("./core.zig").World;
 
 const MOVE_SPEED = 4.5;

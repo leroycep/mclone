@@ -13,7 +13,7 @@ const Mat4f = math.Mat4(f64);
 const pi = std.math.pi;
 const OBB = collision.OBB;
 const core = @import("core");
-const BlockType = core.chunk.BlockType;
+const BlockType = core.block.BlockType;
 const WorldRenderer = @import("./world_render.zig").WorldRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
@@ -238,7 +238,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     if (raycast.prev) |block_pos| {
                         if (item == .Wood) {
-                            const orient = @import("./chunk_render.zig").Orientation.init;
+                            const orient = core.block.Orientation.init;
                             const orientation = switch (raycast.side.?) {
                                 .Top => orient(2, 0, 0),
                                 .Bottom => orient(0, 0, 0),
