@@ -267,9 +267,6 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
     }
 }
 
-var packet_received_num: usize = 0;
-var packet_sent_num: usize = 0;
-
 fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []const u8) void {
     var fbs = std.io.fixedBufferStream(message);
 
@@ -280,8 +277,6 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
         std.log.err("Could not read packet", .{});
         return;
     };
-
-    packet_received_num +%= 1;
 
     switch (packet) {
         .Init => |init_data| client_id = init_data.id,
@@ -399,8 +394,6 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         try core.protocol.Writer.init().write(packet, serialized.writer());
 
         try socket.send(serialized.items);
-
-        packet_sent_num +%= 1;
 
         net.update_sockets();
     }
