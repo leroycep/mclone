@@ -100,12 +100,17 @@ pub const World = struct {
         const chunkPos = globalPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
+            const removedBlock = entry.value.getv(blockPos);
             entry.value.setv(blockPos, blockType);
             // TODO(louis): Make a new function to do this in, and make it less hacky
             if (blockType.blockType == .Torch) {
                 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
                 defer _ = gpa.deinit();
-                this.fillLightv(&gpa.allocator, globalPos) catch unreachable;
+                this.addLightv(&gpa.allocator, globalPos) catch unreachable;
+            } else if (blockType.blockType == .Air and removedBlock.blockType == .Torch) {
+                var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+                defer _ = gpa.deinit();
+                this.removeLightv(&gpa.allocator, globalPos) catch unreachable;
             }
         }
     }
@@ -242,8 +247,7 @@ pub const World = struct {
         };
     }
 
-    pub fn fillLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
-        std.log.debug("Filling light at: {}", .{placePos});
+    pub fn addLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
         var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
         defer lightBfsQueue.deinit();
 
@@ -289,6 +293,58 @@ pub const World = struct {
             if (self.isOpaquev(north) == false and calculatedLevel >= self.getTorchlightv(north)) {
                 self.setTorchlightv(north, lightLevel - 1);
                 try lightBfsQueue.push_back(north);
+            }
+        }
+    }
+
+    pub fn removeLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
+        const RemoveNode = struct { pos: Vec3i, level: u4 };
+        var lightBfsQueue = ArrayDeque(RemoveNode).init(alloc);
+        defer lightBfsQueue.deinit();
+
+        try lightBfsQueue.push_back(.{ .pos = placePos, .level = self.getTorchlightv(placePos) });
+        self.setTorchlightv(placePos, 0);
+
+        while (lightBfsQueue.len() != 0) {
+            var node = lightBfsQueue.pop_front() orelse break;
+            var pos = node.pos;
+            var lightLevel = node.level;
+
+            const west = pos.add(-1, 0, 0);
+            const westLevel = self.getTorchlightv(west);
+            if (westLevel != 0 and westLevel < lightLevel) {
+                self.setTorchlightv(west, 0);
+                try lightBfsQueue.push_back(.{ .pos = west, .level = westLevel });
+            }
+            const east = pos.add(1, 0, 0);
+            const eastLevel = self.getTorchlightv(east);
+            if (eastLevel != 0 and eastLevel < lightLevel) {
+                self.setTorchlightv(east, 0);
+                try lightBfsQueue.push_back(.{ .pos = east, .level = eastLevel });
+            }
+            const bottom = pos.add(0, -1, 0);
+            const bottomLevel = self.getTorchlightv(bottom);
+            if (bottomLevel != 0 and bottomLevel < lightLevel) {
+                self.setTorchlightv(bottom, 0);
+                try lightBfsQueue.push_back(.{ .pos = bottom, .level = bottomLevel });
+            }
+            const up = pos.add(0, 1, 0);
+            const upLevel = self.getTorchlightv(up);
+            if (upLevel != 0 and upLevel < lightLevel) {
+                self.setTorchlightv(up, 0);
+                try lightBfsQueue.push_back(.{ .pos = up, .level = upLevel });
+            }
+            const south = pos.add(0, 0, -1);
+            const southLevel = self.getTorchlightv(south);
+            if (southLevel != 0 and southLevel < lightLevel) {
+                self.setTorchlightv(south, 0);
+                try lightBfsQueue.push_back(.{ .pos = south, .level = southLevel });
+            }
+            const north = pos.add(0, 0, 1);
+            const northLevel = self.getTorchlightv(north);
+            if (northLevel != 0 and northLevel < lightLevel) {
+                self.setTorchlightv(north, 0);
+                try lightBfsQueue.push_back(.{ .pos = north, .level = northLevel });
             }
         }
     }
