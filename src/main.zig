@@ -32,7 +32,7 @@ const line_frag_code = @embedFile("line.frag");
 var shaderProgram: platform.GLuint = undefined;
 var lineShader: platform.GLuint = undefined;
 var projectionMatrixUniform: platform.GLint = undefined;
-var modelTranformUniform: platform.GLint = undefined;
+var modelTransformUniform: platform.GLint = undefined;
 
 var worldRenderer: WorldRenderer = undefined;
 var cursor_vbo: platform.GLuint = undefined;
@@ -119,7 +119,7 @@ pub fn onInit(context: *platform.Context) !void {
     platform.glGenBuffers(1, &cursor_vbo);
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
-    modelTranformUniform = platform.glGetUniformLocation(shaderProgram, "modelTransform");
+    modelTransformUniform = platform.glGetUniformLocation(shaderProgram, "modelTransform");
 
     try context.setRelativeMouseMode(true);
 
@@ -238,10 +238,9 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .Middle => {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     if (raycast.prev) |block_pos| {
-                        var light = worldRenderer.world.getLightv(block_pos);
                         var torchlight = worldRenderer.world.getTorchlightv(block_pos);
                         var sunlight = worldRenderer.world.getSunlightv(block_pos);
-                        std.log.debug("Sun: {}, Torch: {}, Light: {}", .{ sunlight, torchlight, light });
+                        std.log.debug("Pos: {}, Light: {} {}, Div: {}", .{ block_pos, sunlight, torchlight, @intToFloat(f32, torchlight) / 15.0 });
                     }
                 }
             },
@@ -443,7 +442,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glPolygonOffset(1, 0.25);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
-    worldRenderer.render(shaderProgram, modelTranformUniform);
+    worldRenderer.render(shaderProgram, modelTransformUniform);
 
     // Line Drawing Code
     platform.glUseProgram(lineShader);
@@ -452,7 +451,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glLineWidth(1);
     // Draw box around selected box
     platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
-    platform.glUniformMatrix4fv(modelTranformUniform, 1, platform.GL_FALSE, &math.Mat4(f32).ident().v);
+    platform.glUniformMatrix4fv(modelTransformUniform, 1, platform.GL_FALSE, &math.Mat4(f32).ident().v);
     platform.glBindBuffer(platform.GL_ARRAY_BUFFER, cursor_vbo);
     var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
     platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);

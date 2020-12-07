@@ -67,13 +67,6 @@ pub const ChunkRender = struct {
                         continue;
                     }
 
-                    // const topBlock = blockDescFor(world.getv(global_pos.add(0, 1, 0)));
-                    // const bottomBlock = blockDescFor(world.getv(global_pos.add(0, -1, 0)));
-                    // const northBlock = blockDescFor(world.getv(global_pos.add(0, 0, 1)));
-                    // const southBlock = blockDescFor(world.getv(global_pos.add(0, 0, -1)));
-                    // const eastBlock = blockDescFor(world.getv(global_pos.add(1, 0, 0)));
-                    // const westBlock = blockDescFor(world.getv(global_pos.add(-1, 0, 0)));
-
                     // View from negative x
                     if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
                         const tex = @bitCast(i8, desc.texForSide(.West, data));
@@ -128,7 +121,7 @@ pub const ChunkRender = struct {
 
                     // View from negative y
                     if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.Bottom, data));
+                        const tex = -@bitCast(i8, desc.texForSide(.Bottom, data));
                         const light = @bitCast(i8, world.getLightv(global_pos.add(0, -1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
@@ -154,7 +147,7 @@ pub const ChunkRender = struct {
 
                     // View from positive y
                     if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.Top, data));
+                        const tex = -@bitCast(i8, desc.texForSide(.Top, data));
                         const light = @bitCast(i8, world.getLightv(global_pos.add(0, 1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
