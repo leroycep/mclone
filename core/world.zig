@@ -96,10 +96,58 @@ pub const World = struct {
         }
     }
 
-    pub fn setv(this: *@This(), blockPos: Vec3i, blockType: Block) void {
+    pub fn setv(this: *@This(), globalPos: Vec3i, blockType: Block) void {
+        const chunkPos = globalPos.scaleDivFloor(16);
+        if (this.chunks.getEntry(chunkPos)) |entry| {
+            const blockPos = globalPos.subv(chunkPos.scale(16));
+            entry.value.setv(blockPos, blockType);
+            // TODO(louis): Make a new function to do this in, and make it less hacky
+            if (blockType.blockType == .Torch) {
+                var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+                defer _ = gpa.deinit();
+                this.fillLightv(&gpa.allocator, globalPos) catch unreachable;
+            }
+        }
+    }
+
+    pub fn getLightv(this: @This(), blockPos: Vec3i) u8 {
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.get(chunkPos)) |chunk| {
+            return chunk.getLightv(blockPos.subv(chunkPos.scale(16)));
+        } else {
+            return 0;
+        }
+    }
+
+    pub fn getTorchlightv(this: @This(), blockPos: Vec3i) u4 {
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.get(chunkPos)) |chunk| {
+            return chunk.getTorchlightv(blockPos.subv(chunkPos.scale(16)));
+        } else {
+            return 0;
+        }
+    }
+
+    pub fn getSunlightv(this: @This(), blockPos: Vec3i) u4 {
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.get(chunkPos)) |chunk| {
+            return chunk.getSunlightv(blockPos.subv(chunkPos.scale(16)));
+        } else {
+            return 0;
+        }
+    }
+
+    pub fn setTorchlightv(this: @This(), blockPos: Vec3i, lightLevel: u4) void {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
-            return entry.value.setv(blockPos.subv(chunkPos.scale(16)), blockType);
+            entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
+        }
+    }
+
+    pub fn setSunlightv(this: @This(), blockPos: Vec3i, lightLevel: u4) void {
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.getEntry(chunkPos)) |entry| {
+            entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
         }
     }
 
@@ -194,17 +242,54 @@ pub const World = struct {
         };
     }
 
-    pub fn placeLightv(self: *@This(), alloc: *std.Allocator, placePos: Vec3i) void {
-        self.setv(pos, .Torch);
-        self.setSunlightv(pos, 15);
+    pub fn fillLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
+        std.log.debug("Filling light at: {}", .{placePos});
         var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
+        defer lightBfsQueue.deinit();
 
-        lightBfsQueue.push(placePos);
+        self.setTorchlightv(placePos, 15);
+        try lightBfsQueue.push_back(placePos);
 
         while (lightBfsQueue.len() != 0) {
-            var pos = lightBfsQueue.pop();
+            var pos = lightBfsQueue.pop_front() orelse break;
+            var lightLevel = self.getTorchlightv(pos);
+            var calculatedLevel = lightLevel;
+            if (lightLevel -% 2 < lightLevel) {
+                calculatedLevel -= 2;
+            } else {
+                continue;
+            }
 
-            // if (self.getv(pos.sub(-1, 0, 0)).)
+            const west = pos.add(-1, 0, 0);
+            if (self.isOpaquev(west) == false and calculatedLevel >= self.getTorchlightv(west)) {
+                self.setTorchlightv(west, lightLevel - 1);
+                try lightBfsQueue.push_back(west);
+            }
+            const east = pos.add(1, 0, 0);
+            if (self.isOpaquev(east) == false and calculatedLevel >= self.getTorchlightv(east)) {
+                self.setTorchlightv(east, lightLevel - 1);
+                try lightBfsQueue.push_back(east);
+            }
+            const bottom = pos.add(0, -1, 0);
+            if (self.isOpaquev(bottom) == false and calculatedLevel >= self.getTorchlightv(bottom)) {
+                self.setTorchlightv(bottom, lightLevel - 1);
+                try lightBfsQueue.push_back(bottom);
+            }
+            const up = pos.add(0, 1, 0);
+            if (self.isOpaquev(up) == false and calculatedLevel >= self.getTorchlightv(up)) {
+                self.setTorchlightv(up, lightLevel - 1);
+                try lightBfsQueue.push_back(up);
+            }
+            const south = pos.add(0, 0, -1);
+            if (self.isOpaquev(south) == false and calculatedLevel >= self.getTorchlightv(south)) {
+                self.setTorchlightv(south, lightLevel - 1);
+                try lightBfsQueue.push_back(south);
+            }
+            const north = pos.add(0, 0, 1);
+            if (self.isOpaquev(north) == false and calculatedLevel >= self.getTorchlightv(north)) {
+                self.setTorchlightv(north, lightLevel - 1);
+                try lightBfsQueue.push_back(north);
+            }
         }
     }
 };

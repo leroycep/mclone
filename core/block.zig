@@ -174,6 +174,9 @@ const DESCRIPTIONS = comptime describe_blocks: {
     descriptions[@enumToInt(BlockType.IronOre)] = .{
         .rendering = .{ .Single = 9 },
     };
+    descriptions[@enumToInt(BlockType.Torch)] = .{
+        .rendering = .{ .Single = 10 },
+    };
 
     break :describe_blocks descriptions;
 };

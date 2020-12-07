@@ -12,10 +12,7 @@ pub const CX = 16;
 pub const CY = 16;
 pub const CZ = 16;
 
-pub const Light = struct {
-    sunlight: u8,
-    torchlight: u8,
-};
+pub const Light = u8;
 
 pub const Chunk = struct {
     blk: [CX][CY][CZ]Block,
@@ -38,20 +35,28 @@ pub const Chunk = struct {
         return self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)];
     }
 
+    pub fn getLight(self: @This(), x: i64, y: i64, z: i64) u8 {
+        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)];
+    }
+
+    pub fn getLightv(self: @This(), pos: Vec3i) u8 {
+        return self.getLight(pos.x, pos.y, pos.z);
+    }
+
     pub fn getSunlight(self: @This(), x: i64, y: i64, z: i64) u4 {
-        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].sunlight;
+        return @intCast(u4, (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] >> 4) & 0xF);
     }
 
     pub fn getSunlightv(self: @This(), pos: Vec3i) u4 {
-        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].sunlight;
+        return self.getSunlight(pos.x, pos.y, pos.z);
     }
 
     pub fn getTorchlight(self: @This(), x: i64, y: i64, z: i64) u4 {
-        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].torchlight;
+        return @intCast(u4, self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF);
     }
 
     pub fn getTorchlightv(self: @This(), pos: Vec3i) u4 {
-        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].torchlight;
+        return self.getTorchlight(pos.x, pos.y, pos.z);
     }
 
     pub fn set(self: *@This(), x: i64, y: i64, z: i64, block: Block) void {
@@ -64,24 +69,24 @@ pub const Chunk = struct {
         self.changed = true;
     }
 
-    pub fn setSunlight(self: *@This(), x: i64, y: i64, z: i64, level: u4) void {
-        self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].sunlight = level;
+    pub fn setSunlight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u4) void {
+        var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF) | (newlevel << 4);
+        self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = level;
         self.changed = true;
     }
 
-    pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u4) void {
-        self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].sunlight = level;
+    pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u8) void {
+        self.setSunlight(pos.x, pos.y, pos.z, level);
+    }
+
+    pub fn setTorchlight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u8) void {
+        var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF0) | newlevel;
+        self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = level;
         self.changed = true;
     }
 
-    pub fn setTorchlight(self: *@This(), x: i64, y: i64, z: i64, level: u4) void {
-        return self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)].torchlight = level;
-        self.changed = true;
-    }
-
-    pub fn setTorchlightv(self: *@This(), pos: Vec3i, level: u4) void {
-        return self.light[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)].torchlight = level;
-        self.changed = true;
+    pub fn setTorchlightv(self: *@This(), pos: Vec3i, level: u8) void {
+        self.setTorchlight(pos.x, pos.y, pos.z, level);
     }
 
     pub fn fill(self: *@This(), blockType: BlockType) void {

@@ -15,7 +15,7 @@ const CX = core.chunk.CX;
 const CY = core.chunk.CY;
 const CZ = core.chunk.CZ;
 
-const Vertex = [5]platform.GLbyte;
+const Vertex = [6]platform.GLbyte;
 
 fn vertexAO(side1: bool, side2: bool, corner: bool) u2 {
     if (side1 and side2) {
@@ -77,6 +77,7 @@ pub const ChunkRender = struct {
                     // View from negative x
                     if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
                         const tex = @bitCast(i8, desc.texForSide(.West, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(-1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
                         const bottom = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
@@ -85,23 +86,24 @@ pub const ChunkRender = struct {
                         const north_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
                         const south_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
                         const south_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(bottom, south, south_bottom) };
+                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(bottom, south, south_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(bottom, north, north_bottom) };
+                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(top, south, south_top) };
+                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(top, south, south_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(top, south, south_top) };
+                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(top, south, south_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(bottom, north, north_bottom) };
+                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(top, north, north_top) };
+                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(top, north, north_top), light };
                         i += 1;
                     }
 
                     // View from positive x
                     if (world.isOpaquev(global_pos.add(1, 0, 0)) == false) {
                         const tex = @bitCast(i8, desc.texForSide(.East, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
                         const bottom = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
@@ -110,23 +112,24 @@ pub const ChunkRender = struct {
                         const north_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible();
                         const south_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible();
                         const south_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
-                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(bottom, south, south_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(bottom, south, south_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(top, south, south_top) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(top, south, south_top) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light };
                         i += 1;
                     }
 
                     // View from negative y
                     if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Bottom, data));
+                        const tex = @bitCast(i8, desc.texForSide(.Bottom, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, -1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible();
@@ -135,23 +138,24 @@ pub const ChunkRender = struct {
                         const north_west = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
                         const south_east = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
                         const south_west = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(south, west, south_west) };
+                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(south, west, south_west), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(south, east, south_east) };
+                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(south, east, south_east), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(north, west, north_west) };
+                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(north, west, north_west), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(south, east, south_east) };
+                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(south, east, south_east), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(north, east, north_east) };
+                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(north, east, north_east), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(north, west, north_west) };
+                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(north, west, north_west), light };
                         i += 1;
                     }
 
                     // View from positive y
                     if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Top, data));
+                        const tex = @bitCast(i8, desc.texForSide(.Top, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();
@@ -160,23 +164,24 @@ pub const ChunkRender = struct {
                         const north_west = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible();
                         const south_east = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible();
                         const south_west = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
-                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(south, west, south_west) };
+                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(south, west, south_west), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(north, west, north_west) };
+                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(south, east, south_east) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(south, east, south_east) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(north, west, north_west) };
+                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light };
                         i += 1;
                     }
 
                     // View from negative z
                     if (world.isOpaquev(global_pos.add(0, 0, -1)) == false) {
                         const tex = @bitCast(i8, desc.texForSide(.South, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 0, -1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible();
                         const top = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible();
@@ -185,23 +190,24 @@ pub const ChunkRender = struct {
                         const east_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
                         const west_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
                         const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(west, bottom, west_bottom) };
+                        vertex[i] = Vertex{ x, y, z, tex, vertexAO(west, bottom, west_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(west, top, west_top) };
+                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(west, top, west_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(east, bottom, east_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(west, top, west_top) };
+                        vertex[i] = Vertex{ x, y + 1, z, tex, vertexAO(west, top, west_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(east, top, east_top) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z, tex, vertexAO(east, top, east_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(east, bottom, east_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light };
                         i += 1;
                     }
 
                     // View from positive z
                     if (world.isOpaquev(global_pos.add(0, 0, 1)) == false) {
                         const tex = @bitCast(i8, desc.texForSide(.North, data));
+                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 0, 1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
                         const top = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();
@@ -210,17 +216,17 @@ pub const ChunkRender = struct {
                         const east_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible();
                         const west_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible();
                         const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
-                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(west, bottom, west_bottom) };
+                        vertex[i] = Vertex{ x, y, z + 1, tex, vertexAO(west, bottom, west_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(west, top, west_top) };
+                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(west, top, west_top) };
+                        vertex[i] = Vertex{ x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom) };
+                        vertex[i] = Vertex{ x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light };
                         i += 1;
-                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top) };
+                        vertex[i] = Vertex{ x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top), light };
                         i += 1;
                     }
                 }
@@ -243,12 +249,16 @@ pub const ChunkRender = struct {
         platform.glEnable(platform.GL_DEPTH_TEST);
 
         platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
+        const stride = 6;
         var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
         platform.glEnableVertexAttribArray(attribute_coord);
-        platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_BYTE, platform.GL_FALSE, 5, null);
+        platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_BYTE, platform.GL_FALSE, stride, null);
         var attribute_ao = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "ao"));
         platform.glEnableVertexAttribArray(attribute_ao);
-        platform.glVertexAttribPointer(1, 1, platform.GL_BYTE, platform.GL_FALSE, 5, @intToPtr(*c_void, 4));
+        platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 4));
+        var attribute_light = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "light"));
+        platform.glEnableVertexAttribArray(attribute_light);
+        platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 5));
 
         platform.glDrawArrays(platform.GL_TRIANGLES, 0, @intCast(i32, self.elements));
     }

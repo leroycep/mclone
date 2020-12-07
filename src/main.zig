@@ -213,6 +213,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             ._4 => item = .Leaf,
             ._5 => item = .CoalOre,
             ._6 => item = .IronOre,
+            ._7 => item = .Torch,
             else => {},
         },
         .MouseMotion => |mouse_move| {
@@ -232,6 +233,16 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .Left => {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     input.breaking = raycast.pos;
+                }
+            },
+            .Middle => {
+                if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
+                    if (raycast.prev) |block_pos| {
+                        var light = worldRenderer.world.getLightv(block_pos);
+                        var torchlight = worldRenderer.world.getTorchlightv(block_pos);
+                        var sunlight = worldRenderer.world.getSunlightv(block_pos);
+                        std.log.debug("Sun: {}, Torch: {}, Light: {}", .{ sunlight, torchlight, light });
+                    }
                 }
             },
             .Right => {
