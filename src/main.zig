@@ -448,6 +448,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glPolygonOffset(1, 0);
     platform.glLineWidth(1);
     // Draw box around selected box
+    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
     platform.glUniformMatrix4fv(modelTranformUniform, 1, platform.GL_FALSE, &math.Mat4(f32).ident().v);
     platform.glBindBuffer(platform.GL_ARRAY_BUFFER, cursor_vbo);
     var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
