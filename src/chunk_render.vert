@@ -15,8 +15,8 @@ void main(void) {
   else if (ao == uint(1)) fragment_ao = 0.5;
   else if (ao == uint(2)) fragment_ao = 0.7;
   else if (ao == uint(3)) fragment_ao = 1.0;
-  float torch = floor(float(light) / 16.0) / 16.0;
-  float sun = mod(float(light), 16.0) / 16.0;
+  float torch = floor(float(light) / 16.0) / 15.0;
+  float sun = mod(float(light), 16.0) / 15.0;
   fragment_light = clamp(torch + sun, 0.0, 1.0);
   gl_Position = mvp * modelTransform * vec4(coord.xyz, 1);
 }

@@ -70,12 +70,13 @@ pub const Chunk = struct {
     }
 
     pub fn setSunlight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u4) void {
-        var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF) | (newlevel << 4);
+        var lvl: u8 = newlevel;
+        var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF) | (lvl << 4);
         self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = level;
         self.changed = true;
     }
 
-    pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u8) void {
+    pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u4) void {
         self.setSunlight(pos.x, pos.y, pos.z, level);
     }
 
