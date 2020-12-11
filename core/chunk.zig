@@ -113,6 +113,96 @@ pub const Chunk = struct {
         }
     }
 
+    pub fn isInBoundsv(self: *@This(), vec: Vec3i) bool {
+        return (vec.x >= 0 and vec.x < CX and
+            vec.y >= 0 and vec.y < CY and
+            vec.z >= 0 and vec.z < CZ);
+    }
+
+    pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator, top: *const @This()) !void {
+        const block = @import("./block.zig");
+        var lightBfsQueue = @import("util").ArrayDeque(Vec3i).init(alloc);
+        defer lightBfsQueue.deinit();
+
+        var x: u8 = 0;
+        while (x < CX) : (x += 1) {
+            var z: u8 = 0;
+            while (z < CZ) : (z += 1) {
+                var pos = Vec3i.init(x, CY - 1, z);
+                // std.log.debug("{}", .{pos});
+                if (block.describe(self.getv(pos)).isOpaque() == false) {
+                    self.setSunlightv(pos, 15);
+                    try lightBfsQueue.push_back(pos);
+                }
+            }
+        }
+
+        while (lightBfsQueue.len() != 0) {
+            var pos = lightBfsQueue.pop_front() orelse std.debug.panic("Stuff", .{});
+            var lightLevel = self.getSunlightv(pos);
+            var calculatedLevel = lightLevel;
+            if (lightLevel -% 2 < lightLevel) {
+                calculatedLevel -= 2;
+            }
+
+            // std.log.debug("{}", .{pos});
+
+            const west = pos.add(-1, 0, 0);
+            if (self.isInBoundsv(west) and
+                block.describe(self.getv(west)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(west))
+            {
+                self.setSunlightv(west, lightLevel - 1);
+                try lightBfsQueue.push_back(west);
+            }
+            const east = pos.add(1, 0, 0);
+            if (self.isInBoundsv(east) and
+                block.describe(self.getv(east)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(east))
+            {
+                self.setSunlightv(east, lightLevel - 1);
+                try lightBfsQueue.push_back(east);
+            }
+            // Special logic for sunlight!
+            const bottom = pos.add(0, -1, 0);
+            if (self.isInBoundsv(bottom) and
+                block.describe(self.getv(bottom)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(bottom))
+            {
+                if (lightLevel == 15) {
+                    self.setSunlightv(bottom, lightLevel);
+                } else {
+                    self.setSunlightv(bottom, lightLevel - 1);
+                }
+                try lightBfsQueue.push_back(bottom);
+            }
+            const up = pos.add(0, 1, 0);
+            if (self.isInBoundsv(up) and
+                block.describe(self.getv(up)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(up))
+            {
+                self.setSunlightv(up, lightLevel - 1);
+                try lightBfsQueue.push_back(up);
+            }
+            const south = pos.add(0, 0, -1);
+            if (self.isInBoundsv(south) and
+                block.describe(self.getv(south)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(south))
+            {
+                self.setSunlightv(south, lightLevel - 1);
+                try lightBfsQueue.push_back(south);
+            }
+            const north = pos.add(0, 0, 1);
+            if (self.isInBoundsv(north) and
+                block.describe(self.getv(north)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(north))
+            {
+                self.setSunlightv(north, lightLevel - 1);
+                try lightBfsQueue.push_back(north);
+            }
+        }
+    }
+
     pub fn raycast(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?math.Vec(3, u8) {
         const lookat = vec3f(
             std.math.sin(angle.x) * std.math.cos(angle.y),

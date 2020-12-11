@@ -74,6 +74,10 @@ pub const World = struct {
             chunk.blk[7][11][6] = .{ .blockType = .Leaf };
             chunk.blk[7][12][6] = .{ .blockType = .Leaf };
             chunk.blk[7][13][6] = .{ .blockType = .Leaf };
+
+            var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+            defer _ = gpa.deinit();
+            chunk.fillSunlight(&gpa.allocator) catch unreachable;
         } else if (chunkPos.y == 0) {
             chunk.fill(.IronOre);
         } else if (chunkPos.y < 7) {
@@ -83,9 +87,6 @@ pub const World = struct {
         }
 
         try this.chunks.put(chunkPos, chunk);
-        var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        defer _ = gpa.deinit();
-        this.fillSunlightv(&gpa.allocator, chunkPos) catch unreachable;
     }
 
     pub fn loadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
@@ -352,97 +353,6 @@ pub const World = struct {
             if (northLevel != 0 and northLevel < lightLevel) {
                 self.setTorchlightv(north, 0);
                 try lightBfsQueue.push_back(.{ .pos = north, .level = northLevel });
-            }
-        }
-    }
-
-    pub fn fillSunlightv(self: *@This(), alloc: *std.mem.Allocator, chunkPos: Vec3i) !void {
-        var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
-        defer lightBfsQueue.deinit();
-
-        if (self.chunks.get(chunkPos.add(0, 1, 0))) |chunk| {
-            // Chunk above is loaded
-            var x: u8 = 0;
-            while (x < core.chunk.CX) : (x += 1) {
-                var y: u8 = 0;
-                while (y < core.chunk.CY) : (y += 1) {
-                    var z: u8 = 0;
-                    while (z < core.chunk.CZ) : (z += 1) {
-                        var light = chunk.getSunlight(x, y, z);
-                        if (light != 0) {
-                            try lightBfsQueue.push_back(chunkPos.add(x, y, z));
-                        }
-                    }
-                }
-            }
-        } else {
-            if (chunkPos.y >= 7) {
-                // Above ground, assume sunlight
-                var x: u8 = 0;
-                while (x < core.chunk.CX) : (x += 1) {
-                    var z: u8 = 0;
-                    while (z < core.chunk.CZ) : (z += 1) {
-                        var pos = chunkPos.add(x, core.chunk.CY, z);
-                        if (self.isOpaquev(pos) == false) {
-                            self.setSunlightv(pos, 15);
-                            try lightBfsQueue.push_back(pos);
-                        }
-                    }
-                }
-                // std.log.debug("7 or above chunk {}", .{chunkPos});
-            } else {
-                // std.log.debug("Isolated underground chunk, assume no sunlight {}", .{chunkPos});
-                return;
-            }
-        }
-
-        _ = self.chunks.get(chunkPos) orelse {
-            std.log.err("fillSunlight called on unloaded chunk {}", .{chunkPos});
-            return;
-        };
-
-        while (lightBfsQueue.len() != 0) {
-            var pos = lightBfsQueue.pop_front() orelse std.debug.panic("Stuff", .{});
-            var lightLevel = self.getSunlightv(pos);
-            var calculatedLevel = lightLevel;
-            if (lightLevel -% 2 < lightLevel) {
-                calculatedLevel -= 2;
-            }
-
-            const west = pos.add(-1, 0, 0);
-            if (self.isOpaquev(west) == false and calculatedLevel >= self.getSunlightv(west)) {
-                self.setSunlightv(west, lightLevel - 1);
-                try lightBfsQueue.push_back(west);
-            }
-            const east = pos.add(1, 0, 0);
-            if (self.isOpaquev(east) == false and calculatedLevel >= self.getSunlightv(east)) {
-                self.setSunlightv(east, lightLevel - 1);
-                try lightBfsQueue.push_back(east);
-            }
-            // Special logic for sunlight!
-            const bottom = pos.add(0, -1, 0);
-            if (self.isOpaquev(bottom) == false and calculatedLevel >= self.getSunlightv(bottom)) {
-                if (lightLevel >= 15) {
-                    self.setSunlightv(bottom, lightLevel);
-                } else {
-                    self.setSunlightv(bottom, lightLevel - 1);
-                }
-                try lightBfsQueue.push_back(bottom);
-            }
-            const up = pos.add(0, 1, 0);
-            if (self.isOpaquev(up) == false and calculatedLevel >= self.getSunlightv(up)) {
-                self.setSunlightv(up, lightLevel - 1);
-                try lightBfsQueue.push_back(up);
-            }
-            const south = pos.add(0, 0, -1);
-            if (self.isOpaquev(south) == false and calculatedLevel >= self.getSunlightv(south)) {
-                self.setSunlightv(south, lightLevel - 1);
-                try lightBfsQueue.push_back(south);
-            }
-            const north = pos.add(0, 0, 1);
-            if (self.isOpaquev(north) == false and calculatedLevel >= self.getSunlightv(north)) {
-                self.setSunlightv(north, lightLevel - 1);
-                try lightBfsQueue.push_back(north);
             }
         }
     }
