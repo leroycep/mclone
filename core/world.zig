@@ -44,8 +44,6 @@ pub const World = struct {
             chunk.blk[0][2][0] = .{ .blockType = .CoalOre };
             chunk.blk[0][3][0] = .{ .blockType = .Air };
 
-            chunk.setSunlight(8, 7, 7, 15);
-
             chunk.blk[7][7][7] = .{ .blockType = .Wood };
             chunk.blk[7][8][7] = .{ .blockType = .Wood };
             chunk.blk[7][9][7] = .{ .blockType = .Wood };
@@ -109,15 +107,14 @@ pub const World = struct {
             const removedBlock = entry.value.getv(blockPos);
             entry.value.setv(blockPos, blockType);
             // TODO(louis): Make a new function to do this in, and make it less hacky
+            var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+            defer _ = gpa.deinit();
             if (blockType.blockType == .Torch) {
-                var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-                defer _ = gpa.deinit();
                 this.addLightv(&gpa.allocator, globalPos) catch unreachable;
             } else if (blockType.blockType == .Air and removedBlock.blockType == .Torch) {
-                var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-                defer _ = gpa.deinit();
                 this.removeLightv(&gpa.allocator, globalPos) catch unreachable;
             }
+            this.fillSunlight(&gpa.allocator, chunkPos) catch unreachable;
         }
     }
 
@@ -148,14 +145,14 @@ pub const World = struct {
         }
     }
 
-    pub fn setTorchlightv(this: @This(), blockPos: Vec3i, lightLevel: u4) void {
+    pub fn setTorchlightv(this: *@This(), blockPos: Vec3i, lightLevel: u4) void {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
         }
     }
 
-    pub fn setSunlightv(this: @This(), blockPos: Vec3i, lightLevel: u4) void {
+    pub fn setSunlightv(this: *@This(), blockPos: Vec3i, lightLevel: u4) void {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
@@ -353,6 +350,100 @@ pub const World = struct {
             if (northLevel != 0 and northLevel < lightLevel) {
                 self.setTorchlightv(north, 0);
                 try lightBfsQueue.push_back(.{ .pos = north, .level = northLevel });
+            }
+        }
+    }
+
+    pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator, chunkPos: Vec3i) !void {
+        const block = @import("./block.zig");
+        const chunk = core.chunk;
+        var lightBfsQueue = @import("util").ArrayDeque(Vec3i).init(alloc);
+        defer lightBfsQueue.deinit();
+
+        var topChunkPos = chunkPos.add(0, -1, 0);
+        if (self.chunks.get(chunkPos.add(0,-1,0))) |topChunk| {
+            var x: u8 = 0;
+            while (x < chunk.CX) : (x += 1) {
+                var y: u8 = 0;
+                while (y < chunk.CY) : (y += 1) {
+                    var z: u8 = 0;
+                    while (z < chunk.CZ) : (z += 1) {
+                        // if (self.getSunlightv(pos) > 0) {
+                        if (topChunk.getSunlight(x, y, z) > 0) {
+                            var pos = topChunkPos.scale(16).add(x, y, z);
+                            try lightBfsQueue.push_back(pos);
+                        }
+                    }
+                }
+            }
+        } else if (chunkPos.y > 7) {
+            var x: u8 = 0;
+            while (x < chunk.CX) : (x += 1) {
+                var z: u8 = 0;
+                while (z < chunk.CZ) : (z += 1) {
+                    var pos = chunkPos.scale(16).add(x, chunk.CY - 1, z);
+                    if (block.describe(self.getv(pos)).isOpaque() == false) {
+                        self.setSunlightv(pos, 15);
+                        try lightBfsQueue.push_back(pos);
+                    }
+                }
+            }
+        }
+
+        while (lightBfsQueue.len() != 0) {
+            var pos = lightBfsQueue.pop_front() orelse std.debug.panic("Stuff", .{});
+            var lightLevel = self.getSunlightv(pos);
+            var calculatedLevel = lightLevel;
+            if (lightLevel -% 2 < lightLevel) {
+                calculatedLevel -= 2;
+            }
+
+            const west = pos.add(-1, 0, 0);
+            if (block.describe(self.getv(west)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(west))
+            {
+                self.setSunlightv(west, lightLevel - 1);
+                try lightBfsQueue.push_back(west);
+            }
+            const east = pos.add(1, 0, 0);
+            if (block.describe(self.getv(east)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(east))
+            {
+                self.setSunlightv(east, lightLevel - 1);
+                try lightBfsQueue.push_back(east);
+            }
+            // Special logic for sunlight!
+            const bottom = pos.add(0, -1, 0);
+            if (block.describe(self.getv(bottom)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(bottom))
+            {
+                if (lightLevel == 15) {
+                    self.setSunlightv(bottom, lightLevel);
+                } else {
+                    self.setSunlightv(bottom, lightLevel - 1);
+                }
+                try lightBfsQueue.push_back(bottom);
+            }
+            const up = pos.add(0, 1, 0);
+            if (block.describe(self.getv(up)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(up))
+            {
+                self.setSunlightv(up, lightLevel - 1);
+                try lightBfsQueue.push_back(up);
+            }
+            const south = pos.add(0, 0, -1);
+            if (block.describe(self.getv(south)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(south))
+            {
+                self.setSunlightv(south, lightLevel - 1);
+                try lightBfsQueue.push_back(south);
+            }
+            const north = pos.add(0, 0, 1);
+            if (block.describe(self.getv(north)).isOpaque() == false and
+                calculatedLevel >= self.getSunlightv(north))
+            {
+                self.setSunlightv(north, lightLevel - 1);
+                try lightBfsQueue.push_back(north);
             }
         }
     }

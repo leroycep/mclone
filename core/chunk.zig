@@ -119,7 +119,7 @@ pub const Chunk = struct {
             vec.z >= 0 and vec.z < CZ);
     }
 
-    pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator, top: *const @This()) !void {
+    pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator) !void {
         const block = @import("./block.zig");
         var lightBfsQueue = @import("util").ArrayDeque(Vec3i).init(alloc);
         defer lightBfsQueue.deinit();
