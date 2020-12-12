@@ -69,8 +69,8 @@ pub const ChunkRender = struct {
 
                     // View from negative x
                     if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.West, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(-1, 0, 0)));
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(.West, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(-1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
                         const bottom = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
@@ -95,8 +95,8 @@ pub const ChunkRender = struct {
 
                     // View from positive x
                     if (world.isOpaquev(global_pos.add(1, 0, 0)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.East, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(1, 0, 0)));
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(.East, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
                         const bottom = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
@@ -121,8 +121,8 @@ pub const ChunkRender = struct {
 
                     // View from negative y
                     if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Bottom, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, -1, 0)));
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Bottom, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, -1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible();
@@ -147,8 +147,8 @@ pub const ChunkRender = struct {
 
                     // View from positive y
                     if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
-                        const tex = -@bitCast(i8, desc.texForSide(.Top, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 1, 0)));
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Top, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
                         const north = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();
@@ -173,8 +173,8 @@ pub const ChunkRender = struct {
 
                     // View from negative z
                     if (world.isOpaquev(global_pos.add(0, 0, -1)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.South, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 0, -1)));
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(.South, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, -1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible();
                         const top = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible();
@@ -199,8 +199,8 @@ pub const ChunkRender = struct {
 
                     // View from positive z
                     if (world.isOpaquev(global_pos.add(0, 0, 1)) == false) {
-                        const tex = @bitCast(i8, desc.texForSide(.North, data));
-                        const light = @bitCast(i8, world.getLightv(global_pos.add(0, 0, 1)));
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(.North, data));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, 1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
                         const west = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
                         const top = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();

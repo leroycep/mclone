@@ -203,8 +203,10 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .S => input.backward = if (event == .KeyDown) 1 else 0,
             .A => input.left = if (event == .KeyDown) 1 else 0,
             .D => input.right = if (event == .KeyDown) 1 else 0,
-            .Q => daytime = 0,
-            .E => daytime = 1,
+            .E => if (event == .KeyDown) {
+                daytime += 1;
+                daytime = daytime % 3;
+            },
             .SPACE => input.up = if (event == .KeyDown) 1 else 0,
             .LSHIFT => input.down = if (event == .KeyDown) 1 else 0,
             .TAB => if (event == .KeyDown) {

@@ -2,7 +2,7 @@
 
 layout (location = 0) in vec4 coord;
 layout (location = 1) in uint ao;
-layout (location = 2) in uint light;
+layout (location = 2) in float light;
 uniform mat4 mvp;
 uniform mat4 modelTransform;
 uniform uint daytime;
@@ -16,15 +16,14 @@ void main(void) {
   else if (ao == uint(1)) fragment_ao = 0.5;
   else if (ao == uint(2)) fragment_ao = 0.7;
   else if (ao == uint(3)) fragment_ao = 1.0;
-  // float sun = (float((light >> 28) & 0xFu) / 16.0);
-  // float torch = (float((light >> 20) & 0xFu) / 16.0);
-  uint lightReversed = bitfieldReverse(light);
-  float sun = (float((lightReversed >> 9) & 0xFu)) / 16.0;
-  float torch = (float((lightReversed) & 0xFu)) / 16.0;
+  float sun = (mod(light / float(0xF + 1), float(0xF + 1)) / float(0xF));
+  float torch = mod(light, float(0xF + 1)) / float(0xF);
   if (daytime == 0u) {
     fragment_light = torch;
-  } else {
+  } else if (daytime == 1u) {
     fragment_light = sun;
+  } else {
+    fragment_light = max(sun, torch);
   }
   gl_Position = mvp * modelTransform * vec4(coord.xyz, 1);
 }
