@@ -249,9 +249,12 @@ pub const ChunkRender = struct {
         var attribute_ao = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "ao"));
         platform.glEnableVertexAttribArray(attribute_ao);
         platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 4));
-        var attribute_light = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "light"));
-        platform.glEnableVertexAttribArray(attribute_light);
-        platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 5));
+        var attribute_light_result = platform.glGetAttribLocation(shaderProgram, "light");
+        // if (attribute_light_result > 0) {
+            var attribute_light = @intCast(platform.GLuint, attribute_light_result);
+            platform.glEnableVertexAttribArray(attribute_light);
+            platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 5));
+        // }
 
         platform.glDrawArrays(platform.GL_TRIANGLES, 0, @intCast(i32, self.elements));
     }

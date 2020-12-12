@@ -33,6 +33,8 @@ var shaderProgram: platform.GLuint = undefined;
 var lineShader: platform.GLuint = undefined;
 var projectionMatrixUniform: platform.GLint = undefined;
 var modelTransformUniform: platform.GLint = undefined;
+var daytimeUniform: platform.GLint = undefined;
+var daytime: u32 = 0;
 
 var worldRenderer: WorldRenderer = undefined;
 var cursor_vbo: platform.GLuint = undefined;
@@ -120,6 +122,7 @@ pub fn onInit(context: *platform.Context) !void {
 
     projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
     modelTransformUniform = platform.glGetUniformLocation(shaderProgram, "modelTransform");
+    daytimeUniform = platform.glGetUniformLocation(shaderProgram, "daytime");
 
     try context.setRelativeMouseMode(true);
 
@@ -200,6 +203,8 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .S => input.backward = if (event == .KeyDown) 1 else 0,
             .A => input.left = if (event == .KeyDown) 1 else 0,
             .D => input.right = if (event == .KeyDown) 1 else 0,
+            .Q => daytime = 0,
+            .E => daytime = 1,
             .SPACE => input.up = if (event == .KeyDown) 1 else 0,
             .LSHIFT => input.down = if (event == .KeyDown) 1 else 0,
             .TAB => if (event == .KeyDown) {
@@ -238,9 +243,10 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             .Middle => {
                 if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
                     if (raycast.prev) |block_pos| {
-                        var torchlight = worldRenderer.world.getTorchlightv(block_pos);
-                        var sunlight = worldRenderer.world.getSunlightv(block_pos);
-                        std.log.debug("Pos: {}, Light: {} {}, Div: {}", .{ block_pos, sunlight, torchlight, @intToFloat(f32, torchlight) / 15.0 });
+                        var torchlight: u16 = worldRenderer.world.getTorchlightv(block_pos);
+                        var sunlight: u16 = worldRenderer.world.getSunlightv(block_pos);
+                        var totalLight = (@intToFloat(f32, torchlight) / 16) + (@intToFloat(f32, sunlight) / 16);
+                        std.log.debug("Pos: {}, Light: {} {}, Div: {}", .{ block_pos, sunlight, torchlight, totalLight });
                     }
                 }
             },
@@ -442,6 +448,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     platform.glPolygonOffset(1, 0.25);
 
     platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
+    platform.glUniform1ui(daytimeUniform, daytime);
     worldRenderer.render(shaderProgram, modelTransformUniform);
 
     // Line Drawing Code

@@ -64,6 +64,7 @@ pub const glEnableVertexAttribArray = c.glEnableVertexAttribArray;
 pub const glBindVertexArray = c.glBindVertexArray;
 pub const glGetUniformLocation = c.glGetUniformLocation;
 pub const glUniformMatrix4fv = c.glUniformMatrix4fv;
+pub const glUniform1ui = c.glUniform1ui;
 pub const glBlendFunc = c.glBlendFunc;
 pub const glDeleteShader = c.glDeleteShader;
 pub const glGenBuffers = c.glGenBuffers;

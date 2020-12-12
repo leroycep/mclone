@@ -1,4 +1,4 @@
-#version 300 es
+#version 310 es
 
 in highp vec4 texcoord;
 in highp float fragment_ao;
