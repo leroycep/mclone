@@ -328,9 +328,14 @@ pub const ChunkRender = struct {
             std.log.debug("no tex attribute", .{});
         }
 
-        var attribute_ao = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "ao"));
-        platform.glEnableVertexAttribArray(attribute_ao);
-        platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 7));
+        var attribute_ao_result = platform.glGetAttribLocation(shaderProgram, "ao");
+        if (attribute_ao_result >= 0) {
+            var attribute_ao = @intCast(platform.GLuint, attribute_ao_result);
+            platform.glEnableVertexAttribArray(attribute_ao);
+            platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 7));
+        } else {
+            std.log.debug("no ao attribute", .{});
+        }
 
         var attribute_light_result = platform.glGetAttribLocation(shaderProgram, "light");
         if (attribute_light_result >= 0) {
