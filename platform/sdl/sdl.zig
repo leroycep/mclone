@@ -44,7 +44,9 @@ pub const Context = struct {
 };
 
 pub fn run(app: App) !void {
-    const alloc = std.heap.c_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = &gpa.allocator;
 
     // Init SDL
     if (c.SDL_Init(c.SDL_INIT_VIDEO | c.SDL_INIT_AUDIO) != 0) {

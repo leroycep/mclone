@@ -15,6 +15,7 @@ pub const ClientDatagram = union(enum) {
         time: f64,
         input: player.Input,
     },
+    RequestChunk: math.Vec(3, i64),
 };
 
 // Unreliable datagram/packet sent from the server to the client
@@ -34,6 +35,7 @@ pub const ServerDatagram = union(enum) {
         pos: math.Vec(3, i64),
         chunk: core.chunk.Chunk,
     },
+    EmptyChunk: math.Vec(3, i64),
 };
 
 pub const Frames = union(enum) {

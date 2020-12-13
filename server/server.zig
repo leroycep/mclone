@@ -20,7 +20,7 @@ const MAX_CLIENTS = 2;
 pub fn main() !void {
     const tracy = trace(@src());
     defer tracy.end();
-    
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = &gpa.allocator;
@@ -88,6 +88,7 @@ pub fn main() !void {
 
         for (pollfds.items) |pollfd, pollfd_idx| {
             if (poll_count == 0) break;
+            //std.log.debug("polls ready: {}", .{poll_count});
 
             if (pollfd.revents & std.os.POLLIN != std.os.POLLIN) continue;
             poll_count -= 1;
@@ -127,26 +128,26 @@ pub fn main() !void {
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
 
-                const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
-                var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
-                while (chunk_offset.z <= 1) {
-                    const chunk_pos = player_chunk_pos.addv(chunk_offset);
-                    if (world.chunks.get(chunk_pos)) |chunk| {
-                        try client.sendPacket(ServerDatagram{
-                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
-                        });
-                    }
+                //const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
+                //var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
+                //while (chunk_offset.z <= 1) {
+                //    const chunk_pos = player_chunk_pos.addv(chunk_offset);
+                //    if (world.chunks.get(chunk_pos)) |chunk| {
+                //        try client.sendPacket(ServerDatagram{
+                //            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = .{ .Chunk = chunk } },
+                //        });
+                //    }
 
-                    chunk_offset.x += 1;
-                    if (chunk_offset.x > 1) {
-                        chunk_offset.x = -1;
-                        chunk_offset.y += 1;
-                        if (chunk_offset.y > 1) {
-                            chunk_offset.y = -1;
-                            chunk_offset.z += 1;
-                        }
-                    }
-                }
+                //    chunk_offset.x += 1;
+                //    if (chunk_offset.x > 1) {
+                //        chunk_offset.x = -1;
+                //        chunk_offset.y += 1;
+                //        if (chunk_offset.y > 1) {
+                //            chunk_offset.y = -1;
+                //            chunk_offset.z += 1;
+                //        }
+                //    }
+                //}
 
                 broadcastPacket(alloc, &clients, ServerDatagram{
                     .Update = .{
@@ -174,6 +175,18 @@ pub fn main() !void {
 
                     handle_packet: {
                         switch (packet) {
+                            .RequestChunk => |chunk_request_pos| {
+                                if (world.chunks.get(chunk_request_pos)) |chunk| {
+                                    try client.sendPacket(ServerDatagram{
+                                        .ChunkUpdate = .{ .pos = chunk_request_pos, .chunk = chunk },
+                                    });
+                                    std.log.debug("served chunk: {}", .{chunk_request_pos});
+                                } else {
+                                    try client.sendPacket(ServerDatagram{
+                                        .EmptyChunk = chunk_request_pos,
+                                    });
+                                }
+                            },
                             .Update => |update| {
                                 if (update.time < client.currentTime) {
                                     break :handle_packet;
@@ -211,29 +224,6 @@ pub fn main() !void {
                                         broadcastPacket(alloc, &clients, ServerDatagram{
                                             .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
                                         });
-                                    }
-                                }
-
-                                const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
-                                if (!prev_player_chunk_pos.eql(player_chunk_pos)) {
-                                    var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
-                                    while (chunk_offset.z <= 1) {
-                                        const chunk_pos = player_chunk_pos.addv(chunk_offset);
-                                        if (world.chunks.get(chunk_pos)) |chunk| {
-                                            try client.sendPacket(ServerDatagram{
-                                                .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
-                                            });
-                                        }
-
-                                        chunk_offset.x += 1;
-                                        if (chunk_offset.x > 1) {
-                                            chunk_offset.x = -1;
-                                            chunk_offset.y += 1;
-                                            if (chunk_offset.y > 1) {
-                                                chunk_offset.y = -1;
-                                                chunk_offset.z += 1;
-                                            }
-                                        }
                                     }
                                 }
                             },

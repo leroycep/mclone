@@ -67,6 +67,8 @@ var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .look
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var other_player_states: std.AutoHashMap(u64, core.player.State) = undefined;
 
+var chunks_requested: std.ArrayList(math.Vec(3, i64)) = undefined;
+
 const Move = struct {
     time: f64,
     input: core.player.Input,
@@ -145,6 +147,8 @@ pub fn onInit(context: *platform.Context) !void {
 
     moves = util.ArrayDeque(Move).init(context.alloc);
     other_player_states = std.AutoHashMap(u64, core.player.State).init(context.alloc);
+
+    chunks_requested = std.ArrayList(math.Vec(3, i64)).init(context.alloc);
 
     std.log.warn("end app init", .{});
 }
@@ -365,6 +369,20 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
         },
         .ChunkUpdate => |chunk_update| {
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
+            for (chunks_requested.items) |requested_pos, idx| {
+                if (requested_pos.eql(chunk_update.pos)) {
+                    _ = chunks_requested.swapRemove(idx);
+                    break;
+                }
+            }
+        },
+        .EmptyChunk => |empty_chunk_pos| {
+            for (chunks_requested.items) |requested_pos, idx| {
+                if (requested_pos.eql(empty_chunk_pos)) {
+                    _ = chunks_requested.swapRemove(idx);
+                    break;
+                }
+            }
         },
     }
 }
@@ -411,9 +429,43 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         try core.protocol.Writer.init().write(packet, serialized.writer());
 
         try socket.send(serialized.items);
-
-        net.update_sockets();
     }
+
+    // Request nearby chunks
+    const player_chunk_pos = player_state.position.floatToInt(i64).scaleDivFloor(16);
+    var request_pos = math.Vec(3, i64).init(-1, -1, -1);
+    while (chunks_requested.items.len < 5 and request_pos.z <= 1) {
+        defer {
+            request_pos.x += 1;
+            if (request_pos.x > 1) {
+                request_pos.x = -1;
+                request_pos.y += 1;
+                if (request_pos.y > 1) {
+                    request_pos.y = -1;
+                    request_pos.z += 1;
+                }
+            }
+        }
+
+        const chunk_pos = player_chunk_pos.addv(request_pos);
+        if (worldRenderer.world.chunks.get(chunk_pos) == null) {
+            // Request chunk
+            const packet = core.protocol.ClientDatagram{
+                .RequestChunk = chunk_pos,
+            };
+
+            var serialized = ArrayList(u8).init(context.alloc);
+            defer serialized.deinit();
+
+            try core.protocol.Writer.init().write(packet, serialized.writer());
+
+            try socket.send(serialized.items);
+
+            try chunks_requested.append(chunk_pos);
+        }
+    }
+
+    net.update_sockets();
 
     input.breaking = null;
     input.placing = null;
