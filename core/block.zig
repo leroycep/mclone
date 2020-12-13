@@ -9,6 +9,7 @@ pub const BlockType = enum(u8) {
     IronOre,
     Torch,
     Wire,
+    SignalSource,
 };
 
 pub const Block = struct {
@@ -204,7 +205,11 @@ const DESCRIPTIONS = comptime describe_blocks: {
     descriptions[@enumToInt(BlockType.Wire)] = .{
         .is_opaque = false,
         .is_solid = false,
-        .rendering = .{ .Wire = [6]u7{12, 13, 14, 15, 16, 17} },
+        .rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },
+    };
+    descriptions[@enumToInt(BlockType.SignalSource)] = .{
+        .rendering = .{ .Single = 18 },
+        .light_level = .{ .Static = 4 },
     };
 
     break :describe_blocks descriptions;
