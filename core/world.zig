@@ -18,11 +18,13 @@ const trace = @import("util").tracy.trace;
 pub const World = struct {
     allocator: *std.mem.Allocator,
     chunks: std.AutoHashMap(Vec3i, Chunk),
+    updated: std.AutoArrayHashMap(Vec3i, void),
 
     pub fn init(allocator: *std.mem.Allocator) !@This() {
         return @This(){
             .allocator = allocator,
             .chunks = std.AutoHashMap(Vec3i, Chunk).init(allocator),
+            .updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
         };
     }
 
@@ -85,6 +87,7 @@ pub const World = struct {
         }
 
         try this.chunks.put(chunkPos, chunk);
+        try this.updated.put(chunkPos, {});
         try this.fillSunlight(this.allocator, chunkPos);
     }
 
@@ -113,6 +116,15 @@ pub const World = struct {
             const blockPos = globalPos.subv(chunkPos.scale(16));
             const removedBlock = entry.value.getv(blockPos);
             entry.value.setv(blockPos, blockType);
+        }
+    }
+
+    pub fn setAndUpdatev(this: *@This(), globalPos: Vec3i, blockType: Block) void {
+        const chunkPos = globalPos.scaleDivFloor(16);
+        if (this.chunks.getEntry(chunkPos)) |entry| {
+            const blockPos = globalPos.subv(chunkPos.scale(16));
+            const removedBlock = entry.value.getv(blockPos);
+            entry.value.setv(blockPos, blockType);
             // TODO(louis): Make a new function to do this in, and make it less hacky
             if (blockType.blockType == .Torch) {
                 this.addLightv(this.allocator, globalPos) catch unreachable;
@@ -120,6 +132,8 @@ pub const World = struct {
                 this.removeLightv(this.allocator, globalPos) catch unreachable;
             }
             this.fillSunlight(this.allocator, chunkPos) catch unreachable;
+
+            this.updated.put(chunkPos, {}) catch unreachable;
         }
     }
 
@@ -166,6 +180,7 @@ pub const World = struct {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
+            this.updated.put(chunkPos, {}) catch unreachable;
         }
     }
 
@@ -176,6 +191,7 @@ pub const World = struct {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
+            this.updated.put(chunkPos, {}) catch unreachable;
         } else {
             std.log.debug("Trying to set sunlight in unloaded chunk", .{});
         }
@@ -282,8 +298,7 @@ pub const World = struct {
         self.setTorchlightv(placePos, 15);
         try lightBfsQueue.push_back(placePos);
 
-        while (lightBfsQueue.len() != 0) {
-            var pos = lightBfsQueue.pop_front() orelse break;
+        while (lightBfsQueue.pop_front()) |pos| {
             var lightLevel = self.getTorchlightv(pos);
             var calculatedLevel = lightLevel;
             if (lightLevel -% 2 < lightLevel) {

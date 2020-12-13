@@ -56,11 +56,6 @@ pub fn main() !void {
     // Generate world
     var world = try core.World.init(alloc);
     try world.chunks.ensureCapacity(16 * 16 * 16);
-    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 127));
-    // try world.ensureChunkLoaded(math.Vec(3, i64).init(128, 127, 127));
-    // try world.ensureChunkLoaded(math.Vec(3, i64).init(126, 127, 127));
-    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 128));
-    // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 126));
 
     var pos = math.Vec(3, i64).init(0, 0, 0);
     while (pos.z < 16) {
@@ -76,6 +71,7 @@ pub fn main() !void {
             }
         }
     }
+    world.updated.clearRetainingCapacity();
 
     const max_players = 24;
     var num_players: usize = 0;
@@ -127,27 +123,6 @@ pub fn main() !void {
                 try clients.put(new_connection.file.handle, client);
 
                 try client.sendPacket(ServerDatagram{ .Init = .{ .id = client.id } });
-
-                //const player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
-                //var chunk_offset = math.Vec(3, i64).init(-1, -1, -1);
-                //while (chunk_offset.z <= 1) {
-                //    const chunk_pos = player_chunk_pos.addv(chunk_offset);
-                //    if (world.chunks.get(chunk_pos)) |chunk| {
-                //        try client.sendPacket(ServerDatagram{
-                //            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = .{ .Chunk = chunk } },
-                //        });
-                //    }
-
-                //    chunk_offset.x += 1;
-                //    if (chunk_offset.x > 1) {
-                //        chunk_offset.x = -1;
-                //        chunk_offset.y += 1;
-                //        if (chunk_offset.y > 1) {
-                //            chunk_offset.y = -1;
-                //            chunk_offset.z += 1;
-                //        }
-                //    }
-                //}
 
                 broadcastPacket(alloc, &clients, ServerDatagram{
                     .Update = .{
@@ -208,24 +183,22 @@ pub fn main() !void {
                                 });
 
                                 if (update.input.breaking) |block_pos| {
-                                    world.setv(block_pos, .{ .blockType = .Air });
-                                    const chunk_pos = block_pos.scaleDivFloor(16);
-                                    if (world.chunks.get(chunk_pos)) |chunk| {
-                                        broadcastPacket(alloc, &clients, ServerDatagram{
-                                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
-                                        });
-                                    }
+                                    world.setAndUpdatev(block_pos, .{ .blockType = .Air });
                                 }
 
                                 if (update.input.placing) |placing| {
-                                    world.setv(placing.pos, placing.block);
-                                    const chunk_pos = placing.pos.scaleDivFloor(16);
+                                    world.setAndUpdatev(placing.pos, placing.block);
+                                }
+
+                                for (world.updated.items()) |updated_chunk_entry| {
+                                    const chunk_pos = updated_chunk_entry.key;
                                     if (world.chunks.get(chunk_pos)) |chunk| {
                                         broadcastPacket(alloc, &clients, ServerDatagram{
                                             .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
                                         });
                                     }
                                 }
+                                world.updated.clearRetainingCapacity();
                             },
                         }
                     }
