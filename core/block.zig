@@ -26,12 +26,12 @@ pub const Side = enum(u3) {
 
     pub fn fromNormal(x: i2, y: i2, z: i2) @This() {
         if (x == 0 and y == 0 and z == 1) return .North // so zig fmt doesn't eat the newlines
-            else if (x == 1 and y == 0 and z == 0) return .East //
-            else if (x == 0 and y == 0 and z == -1) return .South //
-            else if (x == -1 and y == 0 and z == 0) return .West //
-            else if (x == 0 and y == 1 and z == 0) return .Top //
-            else if (x == 0 and y == -1 and z == 0) return .Bottom //
-            else unreachable;
+        else if (x == 1 and y == 0 and z == 0) return .East //
+        else if (x == 0 and y == 0 and z == -1) return .South //
+        else if (x == -1 and y == 0 and z == 0) return .West //
+        else if (x == 0 and y == 1 and z == 0) return .Top //
+        else if (x == 0 and y == -1 and z == 0) return .Bottom //
+        else unreachable;
     }
 };
 
@@ -107,6 +107,9 @@ const BlockDescription = struct {
         /// A block that only renders as a quad on other surfaces
         Wire: [6]u7,
     },
+    light_level: union(enum) {
+        Static: u4,
+    } = .{ .Static = 0 },
 
     pub fn isOpaque(this: @This()) bool {
         return this.is_opaque;
@@ -153,7 +156,13 @@ const BlockDescription = struct {
             },
             .Wire => |texs| {
                 return texs[5];
-            }
+            },
+        }
+    }
+
+    pub fn lightLevel(this: @This(), data: u16) u4 {
+        switch (this.light_level) {
+            .Static => |level| return level,
         }
     }
 };
@@ -190,6 +199,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
         .rendering = .{ .Single = 10 },
+        .light_level = .{ .Static = 15 },
     };
     descriptions[@enumToInt(BlockType.Wire)] = .{
         .is_opaque = false,

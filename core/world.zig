@@ -118,19 +118,20 @@ pub const World = struct {
         }
     }
 
-    pub fn setAndUpdatev(this: *@This(), globalPos: Vec3i, blockType: Block) !void {
+    pub fn setAndUpdatev(this: *@This(), globalPos: Vec3i, block: Block) !void {
         const chunkPos = globalPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
             const removedBlock = entry.value.getv(blockPos);
             const torchlightLevel = this.getTorchlightv(globalPos);
 
-            entry.value.setv(blockPos, blockType);
+            entry.value.setv(blockPos, block);
 
-            if (core.block.describe(blockType).isOpaque() or blockType.blockType == .Air) {
+            const desc = core.block.describe(block);
+            if (desc.isOpaque() or block.blockType == .Air) {
                 try this.removeLightv(globalPos);
             }
-            if (blockType.blockType == .Torch) {
+            if (desc.lightLevel(block.blockData) > 0) {
                 try this.addLightv(globalPos);
             }
 
@@ -298,7 +299,11 @@ pub const World = struct {
         var lightBfsQueue = ArrayDeque(Vec3i).init(self.allocator);
         defer lightBfsQueue.deinit();
 
-        self.setTorchlightv(placePos, 15);
+        const block = self.getv(placePos);
+        const desc = core.block.describe(block);
+        const light_level = desc.lightLevel(block.blockData);
+
+        self.setTorchlightv(placePos, light_level);
         try lightBfsQueue.push_back(placePos);
 
         try self.propogateLight(&lightBfsQueue);
@@ -308,67 +313,47 @@ pub const World = struct {
         const tracy = trace(@src());
         defer tracy.end();
 
-        const RemoveNode = struct { pos: Vec3i, level: u4 };
+        const RemoveNode = struct { pos: Vec3i, expected_level: u4 };
         var lightRemovalBfsQueue = ArrayDeque(RemoveNode).init(self.allocator);
         defer lightRemovalBfsQueue.deinit();
         var lightBfsQueue = ArrayDeque(Vec3i).init(self.allocator);
         defer lightBfsQueue.deinit();
 
-        try lightRemovalBfsQueue.push_back(.{ .pos = placePos, .level = self.getTorchlightv(placePos) });
-        self.setTorchlightv(placePos, 0);
+        {
+            const light_level = self.getTorchlightv(placePos);
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(-1, 0, 0), .expected_level = light_level });
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(1, 0, 0), .expected_level = light_level });
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, -1, 0), .expected_level = light_level });
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 1, 0), .expected_level = light_level });
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, -1), .expected_level = light_level });
+            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, 1), .expected_level = light_level });
+            self.setTorchlightv(placePos, 0);
+        }
 
-        while (lightRemovalBfsQueue.len() != 0) {
-            var node = lightRemovalBfsQueue.pop_front() orelse break;
-            var pos = node.pos;
-            var lightLevel = node.level;
+        while (lightRemovalBfsQueue.pop_front()) |node| {
+            const pos = node.pos;
+            const light_level = self.getTorchlightv(pos);
+            const expected_light_level = node.expected_level;
+            if (light_level != 0 and light_level < expected_light_level) {
+                const block = self.getv(pos);
+                const desc = core.block.describe(block);
+                const emitted_light = desc.lightLevel(block.blockData);
 
-            const west = pos.add(-1, 0, 0);
-            const westLevel = self.getTorchlightv(west);
-            if (westLevel != 0 and westLevel < lightLevel) {
-                self.setTorchlightv(west, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = west, .level = westLevel });
-            } else if (westLevel >= lightLevel) {
-                try lightBfsQueue.push_back(west);
-            }
-            const east = pos.add(1, 0, 0);
-            const eastLevel = self.getTorchlightv(east);
-            if (eastLevel != 0 and eastLevel < lightLevel) {
-                self.setTorchlightv(east, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = east, .level = eastLevel });
-            } else if (eastLevel >= lightLevel) {
-                try lightBfsQueue.push_back(east);
-            }
-            const bottom = pos.add(0, -1, 0);
-            const bottomLevel = self.getTorchlightv(bottom);
-            if (bottomLevel != 0 and bottomLevel < lightLevel) {
-                self.setTorchlightv(bottom, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = bottom, .level = bottomLevel });
-            } else if (bottomLevel >= lightLevel) {
-                try lightBfsQueue.push_back(bottom);
-            }
-            const up = pos.add(0, 1, 0);
-            const upLevel = self.getTorchlightv(up);
-            if (upLevel != 0 and upLevel < lightLevel) {
-                self.setTorchlightv(up, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = up, .level = upLevel });
-            } else if (upLevel >= lightLevel) {
-                try lightBfsQueue.push_back(up);
-            }
-            const south = pos.add(0, 0, -1);
-            const southLevel = self.getTorchlightv(south);
-            if (southLevel != 0 and southLevel < lightLevel) {
-                self.setTorchlightv(south, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = south, .level = southLevel });
-            } else if (southLevel >= lightLevel) {
-                try lightBfsQueue.push_back(south);
-            }
-            const north = pos.add(0, 0, 1);
-            const northLevel = self.getTorchlightv(north);
-            if (northLevel != 0 and northLevel < lightLevel) {
-                self.setTorchlightv(north, 0);
-                try lightRemovalBfsQueue.push_back(.{ .pos = north, .level = northLevel });
-            } else if (northLevel >= lightLevel) {
-                try lightBfsQueue.push_back(north);
+                self.setTorchlightv(pos, emitted_light);
+
+                if (emitted_light > 0) {
+                    try lightBfsQueue.push_back(pos);
+                    continue;
+                }
+
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(-1, 0, 0), .expected_level = light_level });
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(1, 0, 0), .expected_level = light_level });
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, -1, 0), .expected_level = light_level });
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 1, 0), .expected_level = light_level });
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, -1), .expected_level = light_level });
+                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, 1), .expected_level = light_level });
+            } else if (light_level >= expected_light_level) {
+                try lightBfsQueue.push_back(pos);
             }
         }
 
