@@ -27,13 +27,16 @@ fn vertexAO(side1: bool, side2: bool, corner: bool) u2 {
 }
 
 const GLbyte = platform.GLbyte;
-const Vertex = [6]platform.GLbyte;
+const Vertex = [9]platform.GLbyte;
 
 pub const QuadBuildOptions = struct {
     direction: block.Side,
     x: GLbyte,
     y: GLbyte,
     z: GLbyte,
+    x_frac: GLbyte = 0,
+    y_frac: GLbyte = 0,
+    z_frac: GLbyte = 0,
     tex: GLbyte,
     /// The 9 blocks that will affect AO for the quad
     ao: ?[3][3]Block = null,
@@ -44,10 +47,10 @@ pub const Mesh = struct {
     allocator: *std.mem.Allocator,
     vertex: std.ArrayList(Vertex),
 
-    pub fn init(alloc: *std.mem.Allocator) @This() {
+    pub fn init(alloc: *std.mem.Allocator) !@This() {
         return @This(){
             .allocator = alloc,
-            .vertex = std.ArrayList(Vertex).init(alloc),
+            .vertex = try std.ArrayList(Vertex).initCapacity(alloc, CX * CY * CZ * 6 * 6),
         };
     }
 
@@ -56,13 +59,20 @@ pub const Mesh = struct {
     }
 
     pub fn addVertex(this: *@This(), x: GLbyte, y: GLbyte, z: GLbyte, tex: GLbyte, ao: GLbyte, light: GLbyte) !void {
-        try this.vertex.append(Vertex{ x, y, z, tex, ao, light });
+        try this.vertex.append(Vertex{ x, y, z, 0, 0, 0, tex, ao, light });
+    }
+
+    pub fn addVertexRaw(this: *@This(), x: GLbyte, y: GLbyte, z: GLbyte, x_frac: GLbyte, y_frac: GLbyte, z_frac: GLbyte, tex: GLbyte, ao: GLbyte, light: GLbyte) !void {
+        try this.vertex.append(Vertex{ x, y, z, x_frac, y_frac, z_frac, tex, ao, light });
     }
 
     pub fn addUpQuad(this: *@This(), options: QuadBuildOptions) !void {
         const x = options.x;
         const y = options.y;
         const z = options.z;
+        const x_frac = options.x_frac;
+        const y_frac = options.y_frac;
+        const z_frac = options.z_frac;
         const tex = options.tex;
         const light = options.tex;
         if (options.ao) |ao| {
@@ -81,12 +91,12 @@ pub const Mesh = struct {
             try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
             try this.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
         } else {
-            try this.addVertex(x, y + 1, z, tex, 0, light);
-            try this.addVertex(x, y + 1, z + 1, tex, 0, light);
-            try this.addVertex(x + 1, y + 1, z, tex, 0, light);
-            try this.addVertex(x + 1, y + 1, z, tex, 0, light);
-            try this.addVertex(x, y + 1, z + 1, tex, 0, light);
-            try this.addVertex(x + 1, y + 1, z + 1, tex, 0, light);
+            try this.addVertexRaw(x, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
+            try this.addVertexRaw(x, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
+            try this.addVertexRaw(x + 1, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
+            try this.addVertexRaw(x + 1, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
+            try this.addVertexRaw(x, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
+            try this.addVertexRaw(x + 1, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
         }
     }
 };
@@ -113,7 +123,7 @@ pub const ChunkRender = struct {
 
     pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: World) !void {
         // var vertex: [CX * CY * CZ * 6 * 6]Vertex = undefined;
-        var mesh: Mesh = Mesh.init(self.allocator);
+        var mesh: Mesh = try Mesh.init(self.allocator);
         defer mesh.deinit();
         var i: u32 = 0;
 
@@ -137,13 +147,14 @@ pub const ChunkRender = struct {
                     }
 
                     if (desc.rendering == .Wire) {
-                        const tex = @bitCast(platform.GLbyte, desc.texForSide(.Top, data));
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Top, data));
                         const light = @bitCast(platform.GLbyte, world.getLightv(global_pos));
                         const opt = mesh.addUpQuad(QuadBuildOptions{
                             .direction = .Top,
                             .x = x,
                             .y = y,
                             .z = z,
+                            .y_frac = -127,
                             .tex = tex,
                             .light = light,
                         });
@@ -275,7 +286,7 @@ pub const ChunkRender = struct {
 
         self.elements = mesh.vertex.items.len;
         platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
-        platform.glBufferData(platform.GL_ARRAY_BUFFER, @intCast(c_long, mesh.vertex.items.len) * @sizeOf(Vertex), &mesh.vertex.items, platform.GL_STATIC_DRAW);
+        platform.glBufferData(platform.GL_ARRAY_BUFFER, @intCast(c_long, mesh.vertex.items.len) * @sizeOf(Vertex), mesh.vertex.items.ptr, platform.GL_STATIC_DRAW);
     }
 
     pub fn render(self: *@This(), shaderProgram: platform.GLuint) void {
@@ -289,19 +300,46 @@ pub const ChunkRender = struct {
         platform.glEnable(platform.GL_DEPTH_TEST);
 
         platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
-        const stride = 6;
-        var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
-        platform.glEnableVertexAttribArray(attribute_coord);
-        platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_BYTE, platform.GL_FALSE, stride, null);
+        const stride = 9;
+        var attribute_coord_result = platform.glGetAttribLocation(shaderProgram, "coord");
+        if (attribute_coord_result >= 0) {
+            var attribute_coord = @intCast(platform.GLuint, attribute_coord_result);
+            platform.glEnableVertexAttribArray(attribute_coord);
+            platform.glVertexAttribPointer(attribute_coord, 3, platform.GL_BYTE, platform.GL_FALSE, stride, null);
+        } else {
+            std.log.debug("no coord attribute err {}", .{attribute_coord_result});
+        }
+
+        var attribute_coord_frac_result = platform.glGetAttribLocation(shaderProgram, "frac_coord");
+        if (attribute_coord_frac_result >= 0) {
+            var attribute_coord_frac = @intCast(platform.GLuint, attribute_coord_frac_result);
+            platform.glEnableVertexAttribArray(attribute_coord_frac);
+            platform.glVertexAttribPointer(attribute_coord_frac, 3, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 3));
+        } else {
+            std.log.debug("no coord_frac attribute", .{});
+        }
+
+        var attribute_tex_result = platform.glGetAttribLocation(shaderProgram, "tex");
+        if (attribute_tex_result >= 0) {
+            var attribute_tex = @intCast(platform.GLuint, attribute_tex_result);
+            platform.glEnableVertexAttribArray(attribute_tex);
+            platform.glVertexAttribPointer(attribute_tex, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 6));
+        } else {
+            std.log.debug("no tex attribute", .{});
+        }
+
         var attribute_ao = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "ao"));
         platform.glEnableVertexAttribArray(attribute_ao);
-        platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 4));
+        platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 7));
+
         var attribute_light_result = platform.glGetAttribLocation(shaderProgram, "light");
-        // if (attribute_light_result > 0) {
-        var attribute_light = @intCast(platform.GLuint, attribute_light_result);
-        platform.glEnableVertexAttribArray(attribute_light);
-        platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 5));
-        // }
+        if (attribute_light_result >= 0) {
+            var attribute_light = @intCast(platform.GLuint, attribute_light_result);
+            platform.glEnableVertexAttribArray(attribute_light);
+            platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 8));
+        } else {
+            std.log.debug("no light attribute", .{});
+        }
 
         platform.glDrawArrays(platform.GL_TRIANGLES, 0, @intCast(i32, self.elements));
     }

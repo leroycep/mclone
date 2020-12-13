@@ -1,8 +1,10 @@
 #version 310 es
 
-layout (location = 0) in vec4 coord;
-layout (location = 1) in uint ao;
-layout (location = 2) in float light;
+in vec3 coord;
+in vec3 frac_coord;
+in float tex;
+in uint ao;
+in float light;
 uniform mat4 mvp;
 uniform mat4 modelTransform;
 uniform uint daytime;
@@ -11,7 +13,7 @@ out float fragment_ao;
 out float fragment_light;
 
 void main(void) {
-  texcoord = coord;
+  texcoord = vec4(coord.xyz, tex);
   if (ao == uint(0)) fragment_ao = 0.3;
   else if (ao == uint(1)) fragment_ao = 0.5;
   else if (ao == uint(2)) fragment_ao = 0.7;
@@ -25,5 +27,5 @@ void main(void) {
   } else {
     fragment_light = max(sun, torch);
   }
-  gl_Position = mvp * modelTransform * vec4(coord.xyz, 1);
+  gl_Position = mvp * modelTransform * vec4(coord.xyz + (frac_coord.xyz / 128.0), 1);
 }
