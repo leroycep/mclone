@@ -13,12 +13,12 @@ const MATH = std.build.Pkg{
 const PLATFORM = std.build.Pkg{
     .name = "platform",
     .path = "./platform/platform.zig",
-    .dependencies = &[_]Pkg{ MATH },
+    .dependencies = &[_]Pkg{MATH},
 };
 const UTIL = std.build.Pkg{
     .name = "util",
     .path = "./util/util.zig",
-    .dependencies = &[_]Pkg{ MATH },
+    .dependencies = &[_]Pkg{MATH},
 };
 const BARE = std.build.Pkg{
     .name = "bare",
@@ -34,7 +34,17 @@ pub fn build(b: *Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
+    const tracy = b.option([]const u8, "tracy", "Enable Tracy integration. Supply path to Tracy source");
+
     const tests = b.addTest("src/main.zig");
+    tests.addBuildOption(bool, "enable_tracy", tracy != null);
+    if (tracy) |tracy_path| {
+        const client_cpp = std.fs.path.join(b.allocator, &[_][]const u8{ tracy_path, "TracyClient.cpp" }) catch unreachable;
+        tests.addIncludeDir(tracy_path);
+        tests.addCSourceFile(client_cpp, &[_][]const u8{ "-DTRACY_ENABLE=1", "-fno-sanitize=undefined", "--rtlib=compiler-rt" });
+        tests.linkSystemLibraryName("c++");
+        tests.linkLibC();
+    }
 
     const native = b.addExecutable("mclone", "src/main.zig");
     native.addPackage(UTIL);
@@ -52,12 +62,22 @@ pub fn build(b: *Builder) void {
 
     // Server
     const server = b.addExecutable("mclone-server", "server/server.zig");
+    server.addPackage(UTIL);
     server.addPackage(CORE);
     server.addPackage(MATH);
     server.setTarget(target);
     server.setBuildMode(mode);
     server.install();
+    server.addBuildOption(bool, "enable_tracy", tracy != null);
+    if (tracy) |tracy_path| {
+        const client_cpp = std.fs.path.join(b.allocator, &[_][]const u8{ tracy_path, "TracyClient.cpp" }) catch unreachable;
+        server.addIncludeDir(tracy_path);
+        server.addCSourceFile(client_cpp, &[_][]const u8{ "-DTRACY_ENABLE=1", "-fno-sanitize=undefined", "--rtlib=compiler-rt" });
+        server.linkSystemLibraryName("c++");
+        server.linkLibC();
+    }
     b.step("server", "Build server binary").dependOn(&server.step);
+    b.step("server-run", "Run the native server binary").dependOn(&server.run().step);
 
     const test_server = b.addTest("server/server.zig");
     const test_core = b.addTest("core/core.zig");

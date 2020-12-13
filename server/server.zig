@@ -11,10 +11,16 @@ const protocol = core.protocol;
 const ClientDatagram = protocol.ClientDatagram;
 const ServerDatagram = protocol.ServerDatagram;
 const math = @import("math");
+const trace = @import("util").tracy.trace;
+
+pub const enable_tracy = @import("build_options").enable_tracy;
 
 const MAX_CLIENTS = 2;
 
 pub fn main() !void {
+    const tracy = trace(@src());
+    defer tracy.end();
+    
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = &gpa.allocator;
@@ -49,6 +55,7 @@ pub fn main() !void {
 
     // Generate world
     var world = try core.World.init(alloc);
+    try world.chunks.ensureCapacity(16 * 16 * 16);
     // try world.ensureChunkLoaded(math.Vec(3, i64).init(127, 127, 127));
     // try world.ensureChunkLoaded(math.Vec(3, i64).init(128, 127, 127));
     // try world.ensureChunkLoaded(math.Vec(3, i64).init(126, 127, 127));

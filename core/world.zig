@@ -13,6 +13,7 @@ const Block = core.block.Block;
 const Chunk = core.chunk.Chunk;
 const VoxelTraversal = math.VoxelTraversal;
 const ArrayDeque = util.ArrayDeque;
+const trace = @import("util").tracy.trace;
 
 pub const World = struct {
     allocator: *std.mem.Allocator,
@@ -26,6 +27,9 @@ pub const World = struct {
     }
 
     pub fn ensureChunkLoaded(this: *@This(), chunkPos: Vec3i) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         if (this.chunks.get(chunkPos)) |chunk| {
             // Chunk is loaded, ignore it
             return;
@@ -89,6 +93,9 @@ pub const World = struct {
     }
 
     pub fn getv(this: @This(), blockPos: Vec3i) Block {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
             return chunk.getv(blockPos.subv(chunkPos.scale(16)));
@@ -98,6 +105,9 @@ pub const World = struct {
     }
 
     pub fn setv(this: *@This(), globalPos: Vec3i, blockType: Block) void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = globalPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
@@ -114,6 +124,9 @@ pub const World = struct {
     }
 
     pub fn getLightv(this: @This(), blockPos: Vec3i) u8 {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
             return chunk.getLightv(blockPos.subv(chunkPos.scale(16)));
@@ -123,6 +136,9 @@ pub const World = struct {
     }
 
     pub fn getTorchlightv(this: @This(), blockPos: Vec3i) u4 {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
             return chunk.getTorchlightv(blockPos.subv(chunkPos.scale(16)));
@@ -132,6 +148,9 @@ pub const World = struct {
     }
 
     pub fn getSunlightv(this: @This(), blockPos: Vec3i) u4 {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
             return chunk.getSunlightv(blockPos.subv(chunkPos.scale(16)));
@@ -141,6 +160,9 @@ pub const World = struct {
     }
 
     pub fn setTorchlightv(this: *@This(), blockPos: Vec3i, lightLevel: u4) void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
@@ -148,6 +170,9 @@ pub const World = struct {
     }
 
     pub fn setSunlightv(this: *@This(), blockPos: Vec3i, lightLevel: u4) void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
@@ -248,6 +273,9 @@ pub const World = struct {
     }
 
     pub fn addLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
         defer lightBfsQueue.deinit();
 
@@ -298,6 +326,9 @@ pub const World = struct {
     }
 
     pub fn removeLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         const RemoveNode = struct { pos: Vec3i, level: u4 };
         var lightRemovalBfsQueue = ArrayDeque(RemoveNode).init(alloc);
         defer lightRemovalBfsQueue.deinit();
@@ -406,45 +437,55 @@ pub const World = struct {
     }
 
     pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator, chunkPos: Vec3i) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
         std.log.debug("Filling sunlight at {}", .{chunkPos});
         const block = @import("./block.zig");
-        const chunk = core.chunk;
+        const CX = core.chunk.CX;
+        const CY = core.chunk.CY;
+        const CZ = core.chunk.CZ;
+
         var lightBfsQueue = @import("util").ArrayDeque(Vec3i).init(alloc);
+        try lightBfsQueue.ensureCapacity(16 * 16 * 16);
         defer lightBfsQueue.deinit();
+
+        const chunkEntry = self.chunks.getEntry(chunkPos) orelse return error.ChunkUnloaded;
+        var chunk = &chunkEntry.value;
         {
             var x: u8 = 0;
-            while (x < chunk.CX) : (x += 1) {
+            while (x < CX) : (x += 1) {
                 var y: u8 = 0;
-                while (y < chunk.CY) : (y += 1) {
+                while (y < CY) : (y += 1) {
                     var z: u8 = 0;
-                    while (z < chunk.CZ) : (z += 1) {
-                        var pos = chunkPos.scale(16).add(x, y, z);
-                        self.setSunlightv(pos, 0);
+                    while (z < CZ) : (z += 1) {
+                        chunk.setSunlight(x, y, z, 0);
                     }
                 }
             }
         }
 
-        var topChunkPos = chunkPos.add(0, -1, 0);
         if (chunkPos.y >= 7) {
             var x: u8 = 0;
-            while (x < chunk.CX) : (x += 1) {
+            while (x < CX) : (x += 1) {
                 var z: u8 = 0;
-                while (z < chunk.CZ) : (z += 1) {
-                    var pos = chunkPos.scale(16).add(x, chunk.CY - 1, z);
-                    if (block.describe(self.getv(pos)).isOpaque() == false) {
-                        self.setSunlightv(pos, 15);
+                while (z < CZ) : (z += 1) {
+                    const pos = Vec3i.init(x, CY - 1, z);
+                    if (block.describe(chunk.getv(pos)).isOpaque() == false) {
+                        chunk.setSunlightv(pos, 15);
                         try lightBfsQueue.push_back(pos);
                     }
                 }
             }
         }
+
+        const topChunkPos = chunkPos.add(0, -1, 0);
         if (self.chunks.get(chunkPos.add(0, -1, 0))) |topChunk| {
             var x: u8 = 0;
-            while (x < chunk.CX) : (x += 1) {
+            while (x < CX) : (x += 1) {
                 var z: u8 = 0;
-                while (z < chunk.CZ) : (z += 1) {
-                    var pos = topChunkPos.scale(16).add(x, 0, z);
+                while (z < CZ) : (z += 1) {
+                    var pos = Vec3i.init(x, 0, z);
                     if (topChunk.getSunlight(x, 0, z) > 0) {
                         try lightBfsQueue.push_back(pos);
                     }
@@ -452,9 +493,16 @@ pub const World = struct {
             }
         }
 
-        while (lightBfsQueue.len() != 0) {
-            var pos = lightBfsQueue.pop_front() orelse std.debug.panic("Stuff", .{});
-            var lightLevel = self.getSunlightv(pos);
+        while (lightBfsQueue.pop_front()) |pos| {
+            var lightLevel: u4 = undefined;
+            if (pos.x >= 0 and pos.y >= 0 and pos.z >= 0 and pos.x < CX and pos.y < CY and pos.z < CZ) {
+                lightLevel = chunk.getSunlightv(pos);
+            } else {
+                // TODO: inform other chunk it needs light update
+                continue;
+                //lightLevel = self.getSunlightv(chunkPos.scale(16).addv(pos));
+            }
+
             var calculatedLevel = lightLevel;
             if (lightLevel -% 2 < lightLevel) {
                 calculatedLevel -= 2;
@@ -478,13 +526,18 @@ pub const World = struct {
             // }
             // Special logic for sunlight!
             const bottom = pos.add(0, -1, 0);
-            if (block.describe(self.getv(bottom)).isOpaque() == false and
-                calculatedLevel >= self.getSunlightv(bottom))
+
+            if (bottom.y < 0) {
+                continue;
+            }
+
+            if (block.describe(chunk.getv(bottom)).isOpaque() == false and
+                calculatedLevel >= chunk.getSunlightv(bottom))
             {
                 if (lightLevel == 15) {
-                    self.setSunlightv(bottom, lightLevel);
+                    chunk.setSunlightv(bottom, lightLevel);
                 } else {
-                    self.setSunlightv(bottom, lightLevel - 1);
+                    chunk.setSunlightv(bottom, lightLevel - 1);
                 }
                 try lightBfsQueue.push_back(bottom);
             }
