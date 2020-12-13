@@ -183,11 +183,11 @@ pub fn main() !void {
                                 });
 
                                 if (update.input.breaking) |block_pos| {
-                                    world.setAndUpdatev(block_pos, .{ .blockType = .Air });
+                                    try world.setAndUpdatev(block_pos, .{ .blockType = .Air });
                                 }
 
                                 if (update.input.placing) |placing| {
-                                    world.setAndUpdatev(placing.pos, placing.block);
+                                    try world.setAndUpdatev(placing.pos, placing.block);
                                 }
 
                                 for (world.updated.items()) |updated_chunk_entry| {
