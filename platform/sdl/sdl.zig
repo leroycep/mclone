@@ -62,7 +62,14 @@ pub fn run(app: App) !void {
     const screenWidth = app.window.width orelse 640;
     const screenHeight = app.window.width orelse 480;
 
-    const sdl_window = c.SDL_CreateWindow(app.window.title, c.SDL_WINDOWPOS_UNDEFINED_MASK, c.SDL_WINDOWPOS_UNDEFINED_MASK, screenWidth, screenHeight, c.SDL_WINDOW_SHOWN | c.SDL_WINDOW_OPENGL) orelse {
+    const sdl_window = c.SDL_CreateWindow(
+        app.window.title,
+        c.SDL_WINDOWPOS_UNDEFINED_MASK,
+        c.SDL_WINDOWPOS_UNDEFINED_MASK,
+        screenWidth,
+        screenHeight,
+        c.SDL_WINDOW_SHOWN | c.SDL_WINDOW_OPENGL | c.SDL_WINDOW_RESIZABLE,
+    ) orelse {
         return logSDLErr(error.CouldntCreateWindow);
     };
     defer c.SDL_DestroyWindow(sdl_window);
