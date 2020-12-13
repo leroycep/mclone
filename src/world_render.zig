@@ -26,9 +26,9 @@ pub const WorldRenderer = struct {
         try this.world.loadChunkFromMemory(chunkPos, chunk);
         const gop = try this.renderedChunks.getOrPut(chunkPos);
         if (!gop.found_existing) {
-            gop.entry.value = ChunkRender.init();
+            gop.entry.value = ChunkRender.init(this.allocator);
         }
-        gop.entry.value.update(chunk, chunkPos, this.world);
+        try gop.entry.value.update(chunk, chunkPos, this.world);
     }
 
     pub fn render(this: @This(), shader: platform.GLuint, modelTranformUniform: platform.GLint) void {
