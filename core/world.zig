@@ -493,58 +493,70 @@ pub const World = struct {
                 continue;
             }
 
-            // const west = pos.add(-1, 0, 0);
-            // if (block.describe(self.getv(west)).isOpaque() == false and
-            //     calculatedLevel >= self.getSunlightv(west))
-            // {
-            //     self.setSunlightv(west, lightLevel - 1);
-            //     try lightBfsQueue.push_back(west);
-            // }
-            // const east = pos.add(1, 0, 0);
-            // if (block.describe(self.getv(east)).isOpaque() == false and
-            //     calculatedLevel >= self.getSunlightv(east))
-            // {
-            //     self.setSunlightv(east, lightLevel - 1);
-            //     try lightBfsQueue.push_back(east);
-            // }
-            // Special logic for sunlight!
-            const bottom = pos.add(0, -1, 0);
-
-            if (bottom.y < 0) {
-                continue;
-            }
-
-            if (block.describe(chunk.getv(bottom)).isOpaque() == false and
-                calculatedLevel >= chunk.getSunlightv(bottom))
-            {
-                if (lightLevel == 15) {
-                    chunk.setSunlightv(bottom, lightLevel);
-                } else {
-                    chunk.setSunlightv(bottom, lightLevel - 1);
+            const west = pos.add(-1, 0, 0);
+            if (west.x >= 0) {
+                if (block.describe(chunk.getv(west)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(west))
+                {
+                    chunk.setSunlightv(west, lightLevel - 1);
+                    try lightBfsQueue.push_back(west);
                 }
-                try lightBfsQueue.push_back(bottom);
             }
-            // const up = pos.add(0, 1, 0);
-            // if (block.describe(self.getv(up)).isOpaque() == false and
-            //     calculatedLevel >= self.getSunlightv(up))
-            // {
-            //     self.setSunlightv(up, lightLevel - 1);
-            //     try lightBfsQueue.push_back(up);
-            // }
-            // const south = pos.add(0, 0, -1);
-            // if (block.describe(self.getv(south)).isOpaque() == false and
-            //     calculatedLevel >= self.getSunlightv(south))
-            // {
-            //     self.setSunlightv(south, lightLevel - 1);
-            //     try lightBfsQueue.push_back(south);
-            // }
-            // const north = pos.add(0, 0, 1);
-            // if (block.describe(self.getv(north)).isOpaque() == false and
-            //     calculatedLevel >= self.getSunlightv(north))
-            // {
-            //     self.setSunlightv(north, lightLevel - 1);
-            //     try lightBfsQueue.push_back(north);
-            // }
+
+            const east = pos.add(1, 0, 0);
+            if (east.x < CX) {
+                if (block.describe(chunk.getv(east)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(east))
+                {
+                    chunk.setSunlightv(east, lightLevel - 1);
+                    try lightBfsQueue.push_back(east);
+                }
+            }
+
+            const bottom = pos.add(0, -1, 0);
+            if (bottom.y >= 0) {
+                if (block.describe(chunk.getv(bottom)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(bottom))
+                {
+                    // Special logic for sunlight!
+                    if (lightLevel == 15) {
+                        chunk.setSunlightv(bottom, lightLevel);
+                    } else {
+                        chunk.setSunlightv(bottom, lightLevel - 1);
+                    }
+                    try lightBfsQueue.push_back(bottom);
+                }
+            }
+
+            const up = pos.add(0, 1, 0);
+            if (up.y < CY) {
+                if (block.describe(chunk.getv(up)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(up))
+                {
+                    chunk.setSunlightv(up, lightLevel - 1);
+                    try lightBfsQueue.push_back(up);
+                }
+            }
+
+            const south = pos.add(0, 0, -1);
+            if (south.z >= 0) {
+                if (block.describe(chunk.getv(south)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(south))
+                {
+                    chunk.setSunlightv(south, lightLevel - 1);
+                    try lightBfsQueue.push_back(south);
+                }
+            }
+
+            const north = pos.add(0, 0, 1);
+            if (north.z < CZ) {
+                if (block.describe(chunk.getv(north)).isOpaque() == false and
+                    calculatedLevel >= chunk.getSunlightv(north))
+                {
+                    chunk.setSunlightv(north, lightLevel - 1);
+                    try lightBfsQueue.push_back(north);
+                }
+            }
         }
     }
 };
