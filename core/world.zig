@@ -299,14 +299,16 @@ pub const World = struct {
 
     pub fn removeLightv(self: *@This(), alloc: *std.mem.Allocator, placePos: Vec3i) !void {
         const RemoveNode = struct { pos: Vec3i, level: u4 };
-        var lightBfsQueue = ArrayDeque(RemoveNode).init(alloc);
+        var lightRemovalBfsQueue = ArrayDeque(RemoveNode).init(alloc);
+        defer lightRemovalBfsQueue.deinit();
+        var lightBfsQueue = ArrayDeque(Vec3i).init(alloc);
         defer lightBfsQueue.deinit();
 
-        try lightBfsQueue.push_back(.{ .pos = placePos, .level = self.getTorchlightv(placePos) });
+        try lightRemovalBfsQueue.push_back(.{ .pos = placePos, .level = self.getTorchlightv(placePos) });
         self.setTorchlightv(placePos, 0);
 
-        while (lightBfsQueue.len() != 0) {
-            var node = lightBfsQueue.pop_front() orelse break;
+        while (lightRemovalBfsQueue.len() != 0) {
+            var node = lightRemovalBfsQueue.pop_front() orelse break;
             var pos = node.pos;
             var lightLevel = node.level;
 
@@ -314,37 +316,91 @@ pub const World = struct {
             const westLevel = self.getTorchlightv(west);
             if (westLevel != 0 and westLevel < lightLevel) {
                 self.setTorchlightv(west, 0);
-                try lightBfsQueue.push_back(.{ .pos = west, .level = westLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = west, .level = westLevel });
+            } else if (westLevel >= lightLevel) {
+                try lightBfsQueue.push_back(west);
             }
             const east = pos.add(1, 0, 0);
             const eastLevel = self.getTorchlightv(east);
             if (eastLevel != 0 and eastLevel < lightLevel) {
                 self.setTorchlightv(east, 0);
-                try lightBfsQueue.push_back(.{ .pos = east, .level = eastLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = east, .level = eastLevel });
+            } else if (eastLevel >= lightLevel) {
+                try lightBfsQueue.push_back(east);
             }
             const bottom = pos.add(0, -1, 0);
             const bottomLevel = self.getTorchlightv(bottom);
             if (bottomLevel != 0 and bottomLevel < lightLevel) {
                 self.setTorchlightv(bottom, 0);
-                try lightBfsQueue.push_back(.{ .pos = bottom, .level = bottomLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = bottom, .level = bottomLevel });
+            } else if (bottomLevel >= lightLevel) {
+                try lightBfsQueue.push_back(bottom);
             }
             const up = pos.add(0, 1, 0);
             const upLevel = self.getTorchlightv(up);
             if (upLevel != 0 and upLevel < lightLevel) {
                 self.setTorchlightv(up, 0);
-                try lightBfsQueue.push_back(.{ .pos = up, .level = upLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = up, .level = upLevel });
+            } else if (upLevel >= lightLevel) {
+                try lightBfsQueue.push_back(up);
             }
             const south = pos.add(0, 0, -1);
             const southLevel = self.getTorchlightv(south);
             if (southLevel != 0 and southLevel < lightLevel) {
                 self.setTorchlightv(south, 0);
-                try lightBfsQueue.push_back(.{ .pos = south, .level = southLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = south, .level = southLevel });
+            } else if (southLevel >= lightLevel) {
+                try lightBfsQueue.push_back(south);
             }
             const north = pos.add(0, 0, 1);
             const northLevel = self.getTorchlightv(north);
             if (northLevel != 0 and northLevel < lightLevel) {
                 self.setTorchlightv(north, 0);
-                try lightBfsQueue.push_back(.{ .pos = north, .level = northLevel });
+                try lightRemovalBfsQueue.push_back(.{ .pos = north, .level = northLevel });
+            } else if (northLevel >= lightLevel) {
+                try lightBfsQueue.push_back(north);
+            }
+        }
+
+        while (lightBfsQueue.len() != 0) {
+            var pos = lightBfsQueue.pop_front() orelse break;
+            var lightLevel = self.getTorchlightv(pos);
+            var calculatedLevel = lightLevel;
+            if (lightLevel -% 2 < lightLevel) {
+                calculatedLevel -= 2;
+            } else {
+                continue;
+            }
+
+            const west = pos.add(-1, 0, 0);
+            if (self.isOpaquev(west) == false and calculatedLevel >= self.getTorchlightv(west)) {
+                self.setTorchlightv(west, lightLevel - 1);
+                try lightBfsQueue.push_back(west);
+            }
+            const east = pos.add(1, 0, 0);
+            if (self.isOpaquev(east) == false and calculatedLevel >= self.getTorchlightv(east)) {
+                self.setTorchlightv(east, lightLevel - 1);
+                try lightBfsQueue.push_back(east);
+            }
+            const bottom = pos.add(0, -1, 0);
+            if (self.isOpaquev(bottom) == false and calculatedLevel >= self.getTorchlightv(bottom)) {
+                self.setTorchlightv(bottom, lightLevel - 1);
+                try lightBfsQueue.push_back(bottom);
+            }
+            const up = pos.add(0, 1, 0);
+            if (self.isOpaquev(up) == false and calculatedLevel >= self.getTorchlightv(up)) {
+                self.setTorchlightv(up, lightLevel - 1);
+                try lightBfsQueue.push_back(up);
+            }
+            const south = pos.add(0, 0, -1);
+            if (self.isOpaquev(south) == false and calculatedLevel >= self.getTorchlightv(south)) {
+                self.setTorchlightv(south, lightLevel - 1);
+                try lightBfsQueue.push_back(south);
+            }
+            const north = pos.add(0, 0, 1);
+            if (self.isOpaquev(north) == false and calculatedLevel >= self.getTorchlightv(north)) {
+                self.setTorchlightv(north, lightLevel - 1);
+                try lightBfsQueue.push_back(north);
             }
         }
     }
