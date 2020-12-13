@@ -140,6 +140,12 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/iron-ore.png",
         "assets/white.png",
         "assets/black.png",
+        "assets/wire-1.png",
+        "assets/wire-2.png",
+        "assets/wire-3.png",
+        "assets/wire-4.png",
+        "assets/wire-5.png",
+        "assets/wire-6.png",
     });
 
     socket = try net.FramesSocket.init(context.alloc, "127.0.0.1:5949", 0);
@@ -225,6 +231,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             ._5 => item = .CoalOre,
             ._6 => item = .IronOre,
             ._7 => item = .Torch,
+            ._8 => item = .Wire,
             else => {},
         },
         .MouseMotion => |mouse_move| {

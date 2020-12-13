@@ -4,6 +4,7 @@ const Vec2f = math.Vec(2, f64);
 const vec2f = Vec2f.init;
 const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
+const core = @import("./core.zig");
 const Block = @import("./core.zig").block.Block;
 const World = @import("./core.zig").World;
 
@@ -105,7 +106,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var top_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     top_x = std.math.max(res.pos.x, top_x orelse res.pos.x);
                 }
             }
@@ -123,7 +124,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var bottom_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     bottom_x = std.math.min(res.pos.x, bottom_x orelse res.pos.x);
                 }
             }
@@ -140,7 +141,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var top_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     top_z = std.math.max(res.pos.z, top_z orelse res.pos.z);
                 }
             }
@@ -158,7 +159,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var bottom_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     bottom_z = std.math.min(res.pos.z, bottom_z orelse res.pos.z);
                 }
             }
@@ -178,7 +179,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var top_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     top_y = std.math.max(res.pos.y, top_y orelse res.pos.y);
                 }
             }
@@ -200,7 +201,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var bottom_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (res.block.blockType != .Air) {
+                if (core.block.describe(res.block).isSolid()) {
                     bottom_y = std.math.min(res.pos.y, bottom_y orelse res.pos.y);
                 }
             }

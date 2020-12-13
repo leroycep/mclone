@@ -8,6 +8,7 @@ pub const BlockType = enum(u8) {
     CoalOre,
     IronOre,
     Torch,
+    Wire,
 };
 
 pub const Block = struct {
@@ -92,6 +93,7 @@ pub const Orientation = struct {
 const BlockDescription = struct {
     /// Block obscures other blocks
     is_opaque: bool = true, // TODO: make enum {None, Self, All}
+    is_solid: bool = true,
     rendering: union(enum) {
         /// A block that is not visible
         None: void,
@@ -101,10 +103,17 @@ const BlockDescription = struct {
 
         /// A block with a different texture for each side
         Oriented: [6]u7,
+
+        /// A block that only renders as a quad on other surfaces
+        Wire: [6]u7,
     },
 
     pub fn isOpaque(this: @This()) bool {
         return this.is_opaque;
+    }
+
+    pub fn isSolid(this: @This()) bool {
+        return this.is_solid;
     }
 
     pub fn isVisible(this: @This()) bool {
@@ -112,6 +121,7 @@ const BlockDescription = struct {
             .None => return false,
             .Single => return true,
             .Oriented => return true,
+            .Wire => return true,
         }
     }
 
@@ -141,6 +151,9 @@ const BlockDescription = struct {
                     .West => texs[5],
                 };
             },
+            .Wire => |texs| {
+                return texs[5];
+            }
         }
     }
 };
@@ -150,6 +163,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
 
     descriptions[@enumToInt(BlockType.Air)] = .{
         .is_opaque = false,
+        .is_solid = false,
         .rendering = .None,
     };
     descriptions[@enumToInt(BlockType.Stone)] = .{
@@ -176,6 +190,11 @@ const DESCRIPTIONS = comptime describe_blocks: {
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
         .rendering = .{ .Single = 10 },
+    };
+    descriptions[@enumToInt(BlockType.Wire)] = .{
+        .is_opaque = false,
+        .is_solid = false,
+        .rendering = .{ .Wire = [6]u7{12, 13, 14, 15, 16, 17} },
     };
 
     break :describe_blocks descriptions;

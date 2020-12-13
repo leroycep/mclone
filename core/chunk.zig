@@ -223,7 +223,7 @@ pub const Chunk = struct {
 
             const chunk_pos = voxel_pos.intCast(u8);
             const block = self.get(chunk_pos.x, chunk_pos.y, chunk_pos.z);
-            if (block == .Air) continue;
+            if (!core.block.describe(block).isSolid()) continue;
 
             return chunk_pos;
         }
@@ -251,7 +251,7 @@ pub const Chunk = struct {
 
             const chunk_pos = voxel_pos.intCast(u8);
             const block = self.get(chunk_pos.x, chunk_pos.y, chunk_pos.z);
-            if (block == .Air) {
+            if (!core.block.describe(block).isSolid()) {
                 previous_voxel = chunk_pos;
             } else {
                 break;
