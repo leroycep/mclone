@@ -146,6 +146,11 @@ pub const World = struct {
     pub fn setAndUpdatev(this: *@This(), globalPos: Vec3i, block: Block) !void {
         try this.setAndQueueUpdatev(globalPos, block);
 
+        var lightRemovalBfsQueue = ArrayDeque(RemoveLightNode).init(this.allocator);
+        defer lightRemovalBfsQueue.deinit();
+        var lightBfsQueue = ArrayDeque(Vec3i).init(this.allocator);
+        defer lightBfsQueue.deinit();
+
         // Update light for blocks in updated queue
         while (this.updated_blocks.pop_front()) |updated_pos| {
             const updated_block = this.getv(updated_pos);
@@ -155,13 +160,27 @@ pub const World = struct {
 
             // Update light
             if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
-                try this.removeLightv(updated_pos);
+                //try this.removeLightv(updated_pos);
+                const light_level = this.getTorchlightv(updated_pos);
+                this.setTorchlightv(updated_pos, 0);
+                for (ADJACENT_OFFSETS) |offset| {
+                    try lightRemovalBfsQueue.push_back(.{
+                        .pos = updated_pos.addv(offset),
+                        .expected_level = light_level,
+                    });
+                }
             }
             if (updated_desc.lightEmitted(this, updated_pos) > 0) {
-                try this.addLightv(updated_pos);
+                //try this.addLightv(updated_pos);
+                const light_level = updated_desc.lightEmitted(this, updated_pos);
+                this.setTorchlightv(updated_pos, light_level);
+                try lightBfsQueue.push_back(updated_pos);
             }
             try this.updated.put(updated_pos.scaleDivFloor(16), {});
         }
+
+        // Remove lights
+        try this.removeLightv(&lightRemovalBfsQueue, &lightBfsQueue);
     }
 
     pub fn setAndQueueUpdatev(this: *@This(), globalPos: Vec3i, block: Block) !void {
@@ -336,43 +355,11 @@ pub const World = struct {
         };
     }
 
-    pub fn addLightv(self: *@This(), placePos: Vec3i) !void {
+    const RemoveLightNode = struct { pos: Vec3i, expected_level: u4 };
+
+    pub fn removeLightv(self: *@This(), lightRemovalBfsQueue: *ArrayDeque(RemoveLightNode), lightBfsQueue: *ArrayDeque(Vec3i)) !void {
         const tracy = trace(@src());
         defer tracy.end();
-
-        var lightBfsQueue = ArrayDeque(Vec3i).init(self.allocator);
-        defer lightBfsQueue.deinit();
-
-        const block = self.getv(placePos);
-        const desc = core.block.describe(block);
-        const light_level = desc.lightEmitted(self, placePos);
-
-        self.setTorchlightv(placePos, light_level);
-        try lightBfsQueue.push_back(placePos);
-
-        try self.propogateLight(&lightBfsQueue);
-    }
-
-    pub fn removeLightv(self: *@This(), placePos: Vec3i) !void {
-        const tracy = trace(@src());
-        defer tracy.end();
-
-        const RemoveNode = struct { pos: Vec3i, expected_level: u4 };
-        var lightRemovalBfsQueue = ArrayDeque(RemoveNode).init(self.allocator);
-        defer lightRemovalBfsQueue.deinit();
-        var lightBfsQueue = ArrayDeque(Vec3i).init(self.allocator);
-        defer lightBfsQueue.deinit();
-
-        {
-            const light_level = self.getTorchlightv(placePos);
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(-1, 0, 0), .expected_level = light_level });
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(1, 0, 0), .expected_level = light_level });
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, -1, 0), .expected_level = light_level });
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 1, 0), .expected_level = light_level });
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, -1), .expected_level = light_level });
-            try lightRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, 1), .expected_level = light_level });
-            self.setTorchlightv(placePos, 0);
-        }
 
         while (lightRemovalBfsQueue.pop_front()) |node| {
             const pos = node.pos;
@@ -390,18 +377,18 @@ pub const World = struct {
                     continue;
                 }
 
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(-1, 0, 0), .expected_level = light_level });
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(1, 0, 0), .expected_level = light_level });
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, -1, 0), .expected_level = light_level });
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 1, 0), .expected_level = light_level });
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, -1), .expected_level = light_level });
-                try lightRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, 1), .expected_level = light_level });
+                for (ADJACENT_OFFSETS) |offset| {
+                    try lightRemovalBfsQueue.push_back(.{
+                        .pos = pos.addv(offset),
+                        .expected_level = light_level,
+                    });
+                }
             } else if (light_level >= expected_light_level) {
                 try lightBfsQueue.push_back(pos);
             }
         }
 
-        try self.propogateLight(&lightBfsQueue);
+        try self.propogateLight(lightBfsQueue);
     }
 
     pub fn propogateLight(self: *@This(), lightBfsQueue: *ArrayDeque(Vec3i)) !void {
