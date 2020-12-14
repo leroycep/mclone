@@ -98,12 +98,8 @@ pub const Chunk = struct {
         return core.block.describe(self.get(x, y, z));
     }
 
-    pub fn isOpaque(self: *@This(), x: i64, y: i64, z: i64) bool {
-        return self.describe(x, y, z).isOpaque();
-    }
-
-    pub fn isOpaquev(self: *@This(), pos: Vec3i) bool {
-        return self.isOpaque(pos.x, pos.y, pos.z);
+    pub fn describev(self: *@This(), pos: Vec3i) BlockDescription {
+        return core.block.describe(self.getv(pos));
     }
 
     pub fn fill(self: *@This(), blockType: BlockType) void {

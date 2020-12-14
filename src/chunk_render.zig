@@ -76,20 +76,21 @@ pub const Mesh = struct {
         const tex = options.tex;
         const light = options.tex;
         if (options.ao) |ao| {
-            const east = block.describe(ao[2][1]).isVisible();
-            const west = block.describe(ao[0][1]).isVisible();
-            const north = block.describe(ao[1][2]).isVisible();
-            const south = block.describe(ao[1][0]).isVisible();
-            const north_east = block.describe(ao[2][2]).isVisible();
-            const north_west = block.describe(ao[0][2]).isVisible();
-            const south_east = block.describe(ao[2][0]).isVisible();
-            const south_west = block.describe(ao[0][0]).isVisible();
-            try this.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
-            try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-            try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-            try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-            try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-            try this.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
+            // TODO: Fix ambient occlusion
+            //const east = block.describe(ao[2][1]).isVisible(world, vec3i(x, y, z));
+            //const west = block.describe(ao[0][1]).isVisible(world, vec3i(x, y, z));
+            //const north = block.describe(ao[1][2]).isVisible(world, vec3i(x, y, z));
+            //const south = block.describe(ao[1][0]).isVisible(world, vec3i(x, y, z));
+            //const north_east = block.describe(ao[2][2]).isVisible(world, vec3i(x, y, z));
+            //const north_west = block.describe(ao[0][2]).isVisible(world, vec3i(x, y, z));
+            //const south_east = block.describe(ao[2][0]).isVisible(world, vec3i(x, y, z));
+            //const south_west = block.describe(ao[0][0]).isVisible(world, vec3i(x, y, z));
+            //try this.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
+            //try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+            //try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+            //try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+            //try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+            //try this.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
         } else {
             try this.addVertexRaw(x, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
             try this.addVertexRaw(x, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
@@ -121,7 +122,7 @@ pub const ChunkRender = struct {
         platform.glDeleteBuffers(1, &self.vbo);
     }
 
-    pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: World) !void {
+    pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: *const World) !void {
         var mesh: Mesh = try Mesh.init(self.allocator);
         defer mesh.deinit();
         var i: u32 = 0;
@@ -141,12 +142,12 @@ pub const ChunkRender = struct {
                     var z = @intCast(i8, zi);
                     const global_pos = chunkPos.scale(16).add(x, y, z);
 
-                    if (!desc.isVisible()) {
+                    if (!desc.isVisible(world, global_pos)) {
                         continue;
                     }
 
-                    if (desc.rendering == .Wire) {
-                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Top, data));
+                    if (blk.blockType == .Wire) {
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Top));
                         const light = @bitCast(platform.GLbyte, world.getLightv(global_pos));
                         const opt = mesh.addUpQuad(QuadBuildOptions{
                             .direction = .Top,
@@ -157,127 +158,126 @@ pub const ChunkRender = struct {
                             .tex = tex,
                             .light = light,
                         });
+                        continue;
                     }
-                    if (desc.rendering == .Single or desc.rendering == .Oriented) {
-                        // View from negative x
-                        if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
-                            const tex = @bitCast(platform.GLbyte, desc.texForSide(.West, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(-1, 0, 0)));
-                            const top = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
-                            const bottom = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
-                            const north = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
-                            const south = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible();
-                            const north_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible();
-                            const north_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
-                            const south_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
-                            const south_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                            try mesh.addVertex(x, y, z, tex, vertexAO(bottom, south, south_bottom), light);
-                            try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                            try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                            try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                            try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                            try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
-                        }
+                    // View from negative x
+                    if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .West));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(-1, 0, 0)));
+                        const top = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible(world, global_pos);
+                        const bottom = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible(world, global_pos);
+                        const north = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible(world, global_pos);
+                        const south = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible(world, global_pos);
+                        const north_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible(world, global_pos);
+                        const north_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible(world, global_pos);
+                        const south_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible(world, global_pos);
+                        const south_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x, y, z, tex, vertexAO(bottom, south, south_bottom), light);
+                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
+                    }
 
-                        // View from positive x
-                        if (world.isOpaquev(global_pos.add(1, 0, 0)) == false) {
-                            const tex = @bitCast(platform.GLbyte, desc.texForSide(.East, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(1, 0, 0)));
-                            const top = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
-                            const bottom = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
-                            const north = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
-                            const south = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible();
-                            const north_top = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible();
-                            const north_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible();
-                            const south_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible();
-                            const south_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
-                            try mesh.addVertex(x + 1, y, z, tex, vertexAO(bottom, south, south_bottom), light);
-                            try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                            try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                            try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                            try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
-                            try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                        }
+                    // View from positive x
+                    if (world.isOpaquev(global_pos.add(1, 0, 0)) == false) {
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .East));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(1, 0, 0)));
+                        const top = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible(world, global_pos);
+                        const bottom = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible(world, global_pos);
+                        const north = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible(world, global_pos);
+                        const south = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible(world, global_pos);
+                        const north_top = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible(world, global_pos);
+                        const north_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible(world, global_pos);
+                        const south_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible(world, global_pos);
+                        const south_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(bottom, south, south_bottom), light);
+                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
+                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                    }
 
-                        // View from negative y
-                        if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
-                            const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Bottom, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, -1, 0)));
-                            const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible();
-                            const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible();
-                            const north = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible();
-                            const south = block.describe(world.getv(global_pos.add(0, -1, -1))).isVisible();
-                            const north_east = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible();
-                            const north_west = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
-                            const south_east = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
-                            const south_west = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                            try mesh.addVertex(x, y, z, tex, vertexAO(south, west, south_west), light);
-                            try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
-                            try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
-                            try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
-                            try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(north, east, north_east), light);
-                            try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
-                        }
+                    // View from negative y
+                    if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Bottom));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, -1, 0)));
+                        const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isVisible(world, global_pos);
+                        const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isVisible(world, global_pos);
+                        const north = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible(world, global_pos);
+                        const south = block.describe(world.getv(global_pos.add(0, -1, -1))).isVisible(world, global_pos);
+                        const north_east = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible(world, global_pos);
+                        const north_west = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible(world, global_pos);
+                        const south_east = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible(world, global_pos);
+                        const south_west = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x, y, z, tex, vertexAO(south, west, south_west), light);
+                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
+                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
+                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(north, east, north_east), light);
+                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
+                    }
 
-                        // View from positive y
-                        if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
-                            const tex = -@bitCast(platform.GLbyte, desc.texForSide(.Top, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 1, 0)));
-                            const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible();
-                            const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible();
-                            const north = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();
-                            const south = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible();
-                            const north_east = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible();
-                            const north_west = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible();
-                            const south_east = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible();
-                            const south_west = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
-                            try mesh.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
-                            try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-                            try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-                            try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-                            try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-                            try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
-                        }
+                    // View from positive y
+                    if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
+                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Top));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 1, 0)));
+                        const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isVisible(world, global_pos);
+                        const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isVisible(world, global_pos);
+                        const north = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible(world, global_pos);
+                        const south = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible(world, global_pos);
+                        const north_east = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible(world, global_pos);
+                        const north_west = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible(world, global_pos);
+                        const south_east = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible(world, global_pos);
+                        const south_west = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
+                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
+                    }
 
-                        // View from negative z
-                        if (world.isOpaquev(global_pos.add(0, 0, -1)) == false) {
-                            const tex = @bitCast(platform.GLbyte, desc.texForSide(.South, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, -1)));
-                            const east = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible();
-                            const west = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible();
-                            const top = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible();
-                            const bottom = block.describe(world.getv(global_pos.add(0, -1, -1))).isVisible();
-                            const east_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible();
-                            const east_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible();
-                            const west_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible();
-                            const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible();
-                            try mesh.addVertex(x, y, z, tex, vertexAO(west, bottom, west_bottom), light);
-                            try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
-                            try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
-                            try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
-                            try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(east, top, east_top), light);
-                            try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
-                        }
+                    // View from negative z
+                    if (world.isOpaquev(global_pos.add(0, 0, -1)) == false) {
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .South));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, -1)));
+                        const east = block.describe(world.getv(global_pos.add(1, 0, -1))).isVisible(world, global_pos);
+                        const west = block.describe(world.getv(global_pos.add(-1, 0, -1))).isVisible(world, global_pos);
+                        const top = block.describe(world.getv(global_pos.add(0, 1, -1))).isVisible(world, global_pos);
+                        const bottom = block.describe(world.getv(global_pos.add(0, -1, -1))).isVisible(world, global_pos);
+                        const east_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isVisible(world, global_pos);
+                        const east_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isVisible(world, global_pos);
+                        const west_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isVisible(world, global_pos);
+                        const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x, y, z, tex, vertexAO(west, bottom, west_bottom), light);
+                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
+                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
+                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
+                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(east, top, east_top), light);
+                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
+                    }
 
-                        // View from positive z
-                        if (world.isOpaquev(global_pos.add(0, 0, 1)) == false) {
-                            const tex = @bitCast(platform.GLbyte, desc.texForSide(.North, data));
-                            const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, 1)));
-                            const east = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible();
-                            const west = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible();
-                            const top = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible();
-                            const bottom = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible();
-                            const east_top = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible();
-                            const east_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible();
-                            const west_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible();
-                            const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible();
-                            try mesh.addVertex(x, y, z + 1, tex, vertexAO(west, bottom, west_bottom), light);
-                            try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
-                            try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
-                            try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
-                            try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
-                            try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top), light);
-                        }
+                    // View from positive z
+                    if (world.isOpaquev(global_pos.add(0, 0, 1)) == false) {
+                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .North));
+                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, 1)));
+                        const east = block.describe(world.getv(global_pos.add(1, 0, 1))).isVisible(world, global_pos);
+                        const west = block.describe(world.getv(global_pos.add(-1, 0, 1))).isVisible(world, global_pos);
+                        const top = block.describe(world.getv(global_pos.add(0, 1, 1))).isVisible(world, global_pos);
+                        const bottom = block.describe(world.getv(global_pos.add(0, -1, 1))).isVisible(world, global_pos);
+                        const east_top = block.describe(world.getv(global_pos.add(1, 1, 1))).isVisible(world, global_pos);
+                        const east_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isVisible(world, global_pos);
+                        const west_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isVisible(world, global_pos);
+                        const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isVisible(world, global_pos);
+                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(west, bottom, west_bottom), light);
+                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
+                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
+                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
+                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
+                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top), light);
                     }
                 }
             }

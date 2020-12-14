@@ -37,7 +37,7 @@ pub const WorldRenderer = struct {
         if (!gop.found_existing) {
             gop.entry.value = ChunkRender.init(this.allocator);
         }
-        try gop.entry.value.update(chunk, chunkPos, this.world);
+        try gop.entry.value.update(chunk, chunkPos, &this.world);
     }
 
     pub fn render(this: @This(), shader: platform.GLuint, modelTranformUniform: platform.GLint) void {

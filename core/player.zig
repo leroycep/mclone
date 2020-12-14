@@ -47,7 +47,7 @@ pub const State = struct {
     lookAngle: Vec2f,
     onGround: bool = false,
 
-    pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, world: World) void {
+    pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, world: *World) void {
         this.lookAngle = input.lookAngle;
 
         const forward = vec3f(std.math.sin(this.lookAngle.x), 0, std.math.cos(this.lookAngle.x));
@@ -106,7 +106,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var top_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     top_x = std.math.max(res.pos.x, top_x orelse res.pos.x);
                 }
             }
@@ -124,7 +124,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_x, max_col_x);
             var bottom_x: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     bottom_x = std.math.min(res.pos.x, bottom_x orelse res.pos.x);
                 }
             }
@@ -141,7 +141,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var top_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     top_z = std.math.max(res.pos.z, top_z orelse res.pos.z);
                 }
             }
@@ -159,7 +159,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_z, max_col_z);
             var bottom_z: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     bottom_z = std.math.min(res.pos.z, bottom_z orelse res.pos.z);
                 }
             }
@@ -179,7 +179,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var top_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     top_y = std.math.max(res.pos.y, top_y orelse res.pos.y);
                 }
             }
@@ -201,7 +201,7 @@ pub const State = struct {
             var rect_block_iter = world.iterateRect(min_col_y, max_col_y);
             var bottom_y: ?i64 = null;
             while (rect_block_iter.next()) |res| {
-                if (core.block.describe(res.block).isSolid()) {
+                if (core.block.describe(res.block).isSolid(world, res.pos)) {
                     bottom_y = std.math.min(res.pos.y, bottom_y orelse res.pos.y);
                 }
             }

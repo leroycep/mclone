@@ -15,6 +15,15 @@ const VoxelTraversal = math.VoxelTraversal;
 const ArrayDeque = util.ArrayDeque;
 const trace = @import("util").tracy.trace;
 
+const ADJACENT_OFFSETS = [_]Vec3i{
+    vec3i(-1, 0, 0),
+    vec3i(1, 0, 0),
+    vec3i(0, -1, 0),
+    vec3i(0, 1, 0),
+    vec3i(0, 0, -1),
+    vec3i(0, 0, 1),
+};
+
 pub const World = struct {
     allocator: *std.mem.Allocator,
     chunks: std.AutoHashMap(Vec3i, Chunk),
@@ -145,47 +154,14 @@ pub const World = struct {
 
             const desc = core.block.describe(block);
 
-            const removed_desc = core.block.describe(removedBlock);
-            // Update signals
-            if (removed_desc.signal_level != .None) {
-                const removed_signal_level = removed_desc.signalLevel(removedBlock.blockData);
-                try this.removeSignalv(globalPos, removed_signal_level);
-            }
-            switch (desc.signal_level) {
-                .None => {},
-                .Emit => |level| try this.addSignalv(globalPos, level),
-                .Transmit, .Accept => {
-                    const OFFSETS_TO_CHECK = [_]Vec3i{
-                        vec3i(-1, 0, 0),
-                        vec3i(1, 0, 0),
-                        vec3i(0, -1, 0),
-                        vec3i(0, 1, 0),
-                        vec3i(0, 0, -1),
-                        vec3i(0, 0, 1),
-                    };
-                    var max_signal_level: u4 = 0;
-                    for (OFFSETS_TO_CHECK) |offset| {
-                        const offset_pos = globalPos.addv(offset);
-                        const offset_block = this.getv(offset_pos);
-                        const offset_desc = core.block.describe(offset_block);
-                        const offset_signal = offset_desc.signalLevel(offset_block.blockData);
-                        if (offset_signal > 0) {
-                            max_signal_level = offset_signal - 1;
-                        }
-                    }
-                    if (max_signal_level > 0) try this.addSignalv(globalPos, max_signal_level);
-                },
-            }
+            // TODO: Schedule block for update
 
             // Update light
-            if (desc.isOpaque() or block.blockType == .Air) {
+            if (desc.isOpaque(this, globalPos) or block.blockType == .Air) {
                 try this.removeLightv(globalPos);
             }
 
-            // Make sure to get the updated block data, in case it was updated in signal
-            const incase_updated_block = entry.value.getv(blockPos);
-
-            if (desc.lightLevel(incase_updated_block.blockData) > 0) {
+            if (desc.lightEmitted(this, blockPos) > 0) {
                 try this.addLightv(globalPos);
             }
 
@@ -198,10 +174,10 @@ pub const World = struct {
                 const updated_block = this.getv(updated_pos);
                 const updated_desc = core.block.describe(updated_block);
                 // Update light
-                if (updated_desc.isOpaque() or updated_block.blockType == .Air) {
+                if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
                     try this.removeLightv(updated_pos);
                 }
-                if (updated_desc.lightLevel(updated_block.blockData) > 0) {
+                if (updated_desc.lightEmitted(this, updated_pos) > 0) {
                     try this.addLightv(updated_pos);
                 }
                 try this.updated.put(updated_pos.scaleDivFloor(16), {});
@@ -272,7 +248,7 @@ pub const World = struct {
     pub fn isOpaquev(this: *const @This(), blockPos: Vec3i) bool {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.get(chunkPos)) |chunk| {
-            return core.block.describe(chunk.getv(blockPos.subv(chunkPos.scale(16)))).isOpaque();
+            return core.block.describe(chunk.getv(blockPos.subv(chunkPos.scale(16)))).isOpaque(this, blockPos);
         }
         return false;
     }
@@ -376,7 +352,7 @@ pub const World = struct {
 
         const block = self.getv(placePos);
         const desc = core.block.describe(block);
-        const light_level = desc.lightLevel(block.blockData);
+        const light_level = desc.lightEmitted(self, placePos);
 
         self.setTorchlightv(placePos, light_level);
         try lightBfsQueue.push_back(placePos);
@@ -412,7 +388,7 @@ pub const World = struct {
             if (light_level != 0 and light_level < expected_light_level) {
                 const block = self.getv(pos);
                 const desc = core.block.describe(block);
-                const emitted_light = desc.lightLevel(block.blockData);
+                const emitted_light = desc.lightEmitted(self, pos);
 
                 self.setTorchlightv(pos, emitted_light);
 
@@ -516,7 +492,7 @@ pub const World = struct {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
                     var lightLevel = topChunk.getSunlight(x, 0, z);
-                    if (lightLevel > 1 and !chunk.isOpaque(x, CY - 1, z)) {
+                    if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, vec3i(x, CY-1, z))) {
                         var pos = Vec3i.init(x, CY - 1, z);
                         if (lightLevel == 15) {
                             chunk.setSunlightv(pos, lightLevel);
@@ -534,7 +510,7 @@ pub const World = struct {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
                     const pos = Vec3i.init(x, CY - 1, z);
-                    if (!chunk.isOpaquev(pos)) {
+                    if (!chunk.describev(pos).isOpaque(self, pos)) {
                         chunk.setSunlightv(pos, 15);
                         try lightBfsQueue.push_back(pos);
                     }
@@ -559,68 +535,18 @@ pub const World = struct {
                 continue;
             }
 
-            const west = pos.add(-1, 0, 0);
-            if (west.x >= 0) {
-                if (block.describe(chunk.getv(west)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(west))
-                {
-                    chunk.setSunlightv(west, lightLevel - 1);
-                    try lightBfsQueue.push_back(west);
-                }
-            }
+            for (ADJACENT_OFFSETS) |offset| {
+                const offset_pos = pos.addv(offset);
 
-            const east = pos.add(1, 0, 0);
-            if (east.x < CX) {
-                if (block.describe(chunk.getv(east)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(east))
-                {
-                    chunk.setSunlightv(east, lightLevel - 1);
-                    try lightBfsQueue.push_back(east);
+                if (offset_pos.x < 0 or offset_pos.x >= CX or offset_pos.y < 0 or offset_pos.y >= CY or offset_pos.z < 0 or offset_pos.z >= CZ) {
+                    continue;
                 }
-            }
 
-            const bottom = pos.add(0, -1, 0);
-            if (bottom.y >= 0) {
-                if (block.describe(chunk.getv(bottom)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(bottom))
+                if (block.describe(chunk.getv(offset_pos)).isOpaque(self, offset_pos) == false and
+                    calculatedLevel >= chunk.getSunlightv(offset_pos))
                 {
-                    // Special logic for sunlight!
-                    if (lightLevel == 15) {
-                        chunk.setSunlightv(bottom, lightLevel);
-                    } else {
-                        chunk.setSunlightv(bottom, lightLevel - 1);
-                    }
-                    try lightBfsQueue.push_back(bottom);
-                }
-            }
-
-            const up = pos.add(0, 1, 0);
-            if (up.y < CY) {
-                if (block.describe(chunk.getv(up)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(up))
-                {
-                    chunk.setSunlightv(up, lightLevel - 1);
-                    try lightBfsQueue.push_back(up);
-                }
-            }
-
-            const south = pos.add(0, 0, -1);
-            if (south.z >= 0) {
-                if (block.describe(chunk.getv(south)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(south))
-                {
-                    chunk.setSunlightv(south, lightLevel - 1);
-                    try lightBfsQueue.push_back(south);
-                }
-            }
-
-            const north = pos.add(0, 0, 1);
-            if (north.z < CZ) {
-                if (block.describe(chunk.getv(north)).isOpaque() == false and
-                    calculatedLevel >= chunk.getSunlightv(north))
-                {
-                    chunk.setSunlightv(north, lightLevel - 1);
-                    try lightBfsQueue.push_back(north);
+                    chunk.setSunlightv(offset_pos, lightLevel - 1);
+                    try lightBfsQueue.push_back(offset_pos);
                 }
             }
         }

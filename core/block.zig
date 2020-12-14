@@ -1,3 +1,9 @@
+const core = @import("./core.zig");
+const math = @import("math");
+const World = core.World;
+const Vec3i = math.Vec(3, i64);
+const vec3i = Vec3i.init;
+
 pub const BlockType = enum(u8) {
     Air,
     Stone,
@@ -92,156 +98,81 @@ pub const Orientation = struct {
 };
 
 pub const BlockDescription = struct {
-    /// Block obscures other blocks
-    is_opaque: bool = true, // TODO: make enum {None, Self, All}
-    is_solid: bool = true,
-    rendering: union(enum) {
-        /// A block that is not visible
-        None: void,
+    isOpaqueFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    isSolidFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    isVisibleFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    texForSideFn: fn (this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8,
+    lightEmittedFn: fn (this: *const @This(), world: *const World, pos: Vec3i) u4 = returnStaticInt(u4, 0),
 
-        /// A block with a texture for all sides
-        Single: u7,
-
-        /// A block with a different texture for each side
-        Oriented: [6]u7,
-
-        /// A block that only renders as a quad on other surfaces
-        Wire: [6]u7,
-    },
-    light_level: union(enum) {
-        Static: u4,
-        Signaled: u4,
-    } = .{ .Static = 0 },
-    signal_level: union(enum) {
-        None: void,
-        Emit: u4,
-        Transmit: void,
-        Accept: void,
-    } = .None,
-
-    pub fn isOpaque(this: @This()) bool {
-        return this.is_opaque;
+    pub fn isOpaque(this: *const @This(), world: *const World, pos: Vec3i) bool {
+        return this.isOpaqueFn(this, world, pos);
     }
 
-    pub fn isSolid(this: @This()) bool {
-        return this.is_solid;
+    pub fn isSolid(this: *const @This(), world: *const World, pos: Vec3i) bool {
+        return this.isSolidFn(this, world, pos);
     }
 
-    pub fn isVisible(this: @This()) bool {
-        switch (this.rendering) {
-            .None => return false,
-            .Single => return true,
-            .Oriented => return true,
-            .Wire => return true,
-        }
+    pub fn isVisible(this: *const @This(), world: *const World, pos: Vec3i) bool {
+        return this.isVisibleFn(this, world, pos);
     }
 
-    pub fn texForSide(this: @This(), side: Side, data: u16) u8 {
-        const sin = Orientation.sin;
-        const cos = Orientation.cos;
-
-        switch (this.rendering) {
-            .None => return 0,
-            .Single => |tex| return tex,
-            .Oriented => |texs| {
-                const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
-                const orientedSide = switch (side) {
-                    .Top => Side.fromNormal(0, cos(o.x), sin(o.x)),
-                    .Bottom => Side.fromNormal(0, -cos(o.x), sin(o.x)),
-                    .North => Side.fromNormal(-sin(o.y), cos(o.y) * -sin(o.x), cos(o.y) * cos(o.x)),
-                    .East => Side.fromNormal(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
-                    .South => Side.fromNormal(sin(o.y), cos(o.y) * sin(o.x), cos(o.y) * cos(o.x)),
-                    .West => Side.fromNormal(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
-                };
-                return switch (orientedSide) {
-                    .Top => texs[0],
-                    .Bottom => texs[1],
-                    .North => texs[2],
-                    .East => texs[3],
-                    .South => texs[4],
-                    .West => texs[5],
-                };
-            },
-            .Wire => |texs| {
-                return texs[5];
-            },
-        }
+    pub fn texForSide(this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8 {
+        return this.texForSideFn(this, world, pos, side);
     }
 
-    pub fn lightLevel(this: @This(), data: u16) u4 {
-        switch (this.light_level) {
-            .Static => |level| return level,
-            .Signaled => |level| {
-                if (@intCast(u4, data & 0x000F) > 0) {
-                    return level;
-                } else {
-                    return 0;
-                }
-            }
-        }
-    }
-
-    pub fn signalLevel(this: @This(), data: u16) u4 {
-        switch (this.signal_level) {
-            .None => return 0,
-            .Emit => |level| return level,
-            .Transmit, .Accept => return @intCast(u4, data & 0x000F),
-        }
-    }
-
-    pub fn dataWithSignalLevel(this: @This(), data: u16, newSignalLevel: u4) u16 {
-        switch (this.signal_level) {
-            .None, .Emit => return data,
-            .Transmit, .Accept => return (data & 0xFFF0) | newSignalLevel,
-        }
+    pub fn lightEmitted(this: *const @This(), world: *const World, pos: Vec3i) u4 {
+        return this.lightEmittedFn(this, world, pos);
     }
 };
 
+// TODO: Make this run at runtime so that texture ids can be dynamically found
 const DESCRIPTIONS = comptime describe_blocks: {
     var descriptions: [256]BlockDescription = undefined;
 
     descriptions[@enumToInt(BlockType.Air)] = .{
-        .is_opaque = false,
-        .is_solid = false,
-        .rendering = .None,
+        .isOpaqueFn = returnFalseFn,
+        .isSolidFn = returnFalseFn,
+        .isVisibleFn = returnFalseFn,
+        .texForSideFn = singleTexBlock(0),
     };
     descriptions[@enumToInt(BlockType.Stone)] = .{
-        .rendering = .{ .Single = 2 },
+        .texForSideFn = singleTexBlock(2),
     };
     descriptions[@enumToInt(BlockType.Dirt)] = .{
-        .rendering = .{ .Single = 1 },
+        .texForSideFn = singleTexBlock(1),
     };
     descriptions[@enumToInt(BlockType.Grass)] = .{
-        .rendering = .{ .Oriented = [6]u7{ 3, 1, 4, 4, 4, 4 } },
+        .texForSideFn = makeOrientedBlockTex(.{ 3, 1, 4, 4, 4, 4 }),
     };
     descriptions[@enumToInt(BlockType.Wood)] = .{
-        .rendering = .{ .Oriented = [6]u7{ 5, 5, 6, 6, 6, 6 } },
+        .texForSideFn = makeOrientedBlockTex(.{ 5, 5, 6, 6, 6, 6 }),
     };
     descriptions[@enumToInt(BlockType.Leaf)] = .{
-        .is_opaque = false,
-        .rendering = .{ .Single = 7 },
+        .isOpaqueFn = returnFalseFn,
+        .texForSideFn = singleTexBlock(7),
     };
     descriptions[@enumToInt(BlockType.CoalOre)] = .{
-        .rendering = .{ .Single = 8 },
+        .texForSideFn = singleTexBlock(8),
     };
     descriptions[@enumToInt(BlockType.IronOre)] = .{
-        .rendering = .{ .Single = 9 },
+        .texForSideFn = singleTexBlock(9),
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
-        .rendering = .{ .Single = 10 },
-        .light_level = .{ .Signaled = 15 },
-        .signal_level = .Accept,
+        .texForSideFn = singleTexBlock(10),
+        .lightEmittedFn = returnStaticInt(u4, 15),
+        //.signal_level = .Accept,
     };
     descriptions[@enumToInt(BlockType.Wire)] = .{
-        .is_opaque = false,
-        .is_solid = false,
-        .rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },
-        .signal_level = .Transmit,
+        .isOpaqueFn = returnFalseFn,
+        .isSolidFn = returnFalseFn,
+        //.rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },
+        .texForSideFn = singleTexBlock(17),
+        //.signal_level = .Transmit,
     };
     descriptions[@enumToInt(BlockType.SignalSource)] = .{
-        .rendering = .{ .Single = 18 },
-        .light_level = .{ .Static = 4 },
-        .signal_level = .{ .Emit = 15 },
+        .texForSideFn = singleTexBlock(18),
+        .lightEmittedFn = returnStaticInt(u4, 4),
+        //.signal_level = .{ .Emit = 15 },
     };
 
     break :describe_blocks descriptions;
@@ -249,4 +180,69 @@ const DESCRIPTIONS = comptime describe_blocks: {
 
 pub fn describe(block: Block) BlockDescription {
     return DESCRIPTIONS[@enumToInt(block.blockType)];
+}
+
+// Description building functions
+// const BoolFn = fn (this: *const BlockDescription, world: *const World, pos: Vec3i) bool;
+
+pub fn returnTrueFn(this: *const BlockDescription, world: *const World, pos: Vec3i) bool {
+    return true;
+}
+
+pub fn returnFalseFn(this: *const BlockDescription, world: *const World, pos: Vec3i) bool {
+    return false;
+}
+
+const TexForSideFn = fn (this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8;
+
+fn singleTexBlock(comptime texId: u8) TexForSideFn {
+    const S = struct {
+        fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            return texId;
+        }
+    };
+    return S.getTex;
+}
+
+fn makeOrientedBlockTex(comptime texIds: [6]u8) TexForSideFn {
+    const S = struct {
+        const sin = Orientation.sin;
+        const cos = Orientation.cos;
+
+        fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            const data = world.getv(pos).blockData;
+            const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
+            const orientedSide = switch (side) {
+                .Top => Side.fromNormal(0, cos(o.x), sin(o.x)),
+                .Bottom => Side.fromNormal(0, -cos(o.x), sin(o.x)),
+                .North => Side.fromNormal(-sin(o.y), cos(o.y) * -sin(o.x), cos(o.y) * cos(o.x)),
+                .East => Side.fromNormal(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+                .South => Side.fromNormal(sin(o.y), cos(o.y) * sin(o.x), cos(o.y) * cos(o.x)),
+                .West => Side.fromNormal(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+            };
+            return switch (orientedSide) {
+                .Top => texIds[0],
+                .Bottom => texIds[1],
+                .North => texIds[2],
+                .East => texIds[3],
+                .South => texIds[4],
+                .West => texIds[5],
+            };
+        }
+    };
+
+    return S.getTex;
+}
+
+fn IntReturnedFn(comptime I: type) type {
+    return fn (this: *const BlockDescription, world: *const World, pos: Vec3i) I;
+}
+
+fn returnStaticInt(comptime I: type, comptime num: I) IntReturnedFn(I) {
+    const S = struct {
+        fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i) I {
+            return num;
+        }
+    };
+    return S.getTex;
 }

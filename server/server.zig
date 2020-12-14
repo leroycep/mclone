@@ -171,7 +171,7 @@ pub fn main() !void {
 
                                 const prev_player_chunk_pos = client.state.position.floatToInt(i64).scaleDivFloor(16);
 
-                                client.state.update(update.time, deltaTime, update.input, world);
+                                client.state.update(update.time, deltaTime, update.input, &world);
                                 client.currentTime = update.time;
 
                                 broadcastPacket(alloc, &clients, ServerDatagram{

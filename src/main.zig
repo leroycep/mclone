@@ -282,8 +282,8 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
 
                     const block = worldRenderer.world.getv(raycast.pos);
                     const desc = core.block.describe(block);
-                    const signal = desc.signalLevel(block.blockData);
-                    std.log.debug("Signal: {}", .{ signal });
+                    //const signal = desc.signalLevel(block.blockData);
+                    //std.log.debug("Signal: {}", .{ signal });
                 }
             },
             .Right => {
@@ -374,7 +374,7 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                     const delta_time = prev_time - move_to_replay.time;
 
                     // TODO: store state of chunk at time
-                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input, worldRenderer.world);
+                    corrected_state.update(move_at_time.time, delta_time, move_at_time.input, &worldRenderer.world);
                     move_to_replay.state = corrected_state;
 
                     prev_time = move_to_replay.time;
@@ -437,7 +437,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
     };
 
     previous_player_state = player_state;
-    player_state.update(current_time, delta, player_input, worldRenderer.world);
+    player_state.update(current_time, delta, player_input, &worldRenderer.world);
 
     try moves.push_back(.{
         .time = current_time,
