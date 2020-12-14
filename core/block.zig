@@ -1,3 +1,4 @@
+const std = @import("std");
 const core = @import("./core.zig");
 const math = @import("math");
 const World = core.World;
@@ -104,6 +105,7 @@ pub const BlockDescription = struct {
     isVisibleFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
     texForSideFn: fn (this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8,
     lightEmittedFn: fn (this: *const @This(), world: *const World, pos: Vec3i) u4 = returnStaticInt(u4, 0),
+    updateFn: fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
 
     pub fn isOpaque(this: *const @This(), world: *const World, pos: Vec3i) bool {
         return this.isOpaqueFn(this, world, pos);
@@ -123,6 +125,10 @@ pub const BlockDescription = struct {
 
     pub fn lightEmitted(this: *const @This(), world: *const World, pos: Vec3i) u4 {
         return this.lightEmittedFn(this, world, pos);
+    }
+
+    pub fn update(this: *const @This(), world: *World, pos: Vec3i) void {
+        return this.updateFn(this, world, pos);
     }
 };
 
@@ -161,8 +167,8 @@ const DESCRIPTIONS = comptime describe_blocks: {
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
         .texForSideFn = singleTexBlock(10),
-        .lightEmittedFn = returnStaticInt(u4, 15),
-        //.signal_level = .Accept,
+        .lightEmittedFn = torchGetLightEmitted,
+        .updateFn = torchUpdate,
     };
     descriptions[@enumToInt(BlockType.Wire)] = .{
         .isUsedForAO = false,
@@ -170,7 +176,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .isSolidFn = returnFalseFn,
         //.rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },
         .texForSideFn = singleTexBlock(17),
-        //.signal_level = .Transmit,
+        .updateFn = wireUpdate,
     };
     descriptions[@enumToInt(BlockType.SignalSource)] = .{
         .texForSideFn = singleTexBlock(18),
@@ -248,4 +254,84 @@ fn returnStaticInt(comptime I: type, comptime num: I) IntReturnedFn(I) {
         }
     };
     return S.getTex;
+}
+
+// Update FNs
+const UpdateFn = fn (this: *const BlockDescription, world: *World, pos: Vec3i) void;
+
+fn doNothing(this: *const BlockDescription, world: *World, pos: Vec3i) void {}
+
+const ADJACENT_OFFSETS = [_]Vec3i{
+    vec3i(-1, 0, 0),
+    vec3i(1, 0, 0),
+    vec3i(0, -1, 0),
+    vec3i(0, 1, 0),
+    vec3i(0, 0, -1),
+    vec3i(0, 0, 1),
+};
+
+fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    var block = world.getv(pos);
+    const current_signal = @intCast(u4, block.blockData & 0xF);
+
+    var max_signal_value: u4 = 0;
+    for (ADJACENT_OFFSETS) |offset| {
+        const offset_pos = pos.addv(offset);
+        const offset_block = world.getv(offset_pos);
+        switch (offset_block.blockType) {
+            .SignalSource => max_signal_value = 15,
+            .Wire => {
+                const wire_signal = @intCast(u4, offset_block.blockData & 0xF);
+                max_signal_value = std.math.max(max_signal_value, wire_signal);
+            },
+            else => {},
+        }
+    }
+
+    const new_signal_value = if (max_signal_value == 0) 0 else max_signal_value - 1;
+    if (new_signal_value != current_signal) {
+        block.blockData = new_signal_value;
+        world.setv(pos, block);
+
+        for (ADJACENT_OFFSETS) |offset| {
+            const offset_pos = pos.addv(offset);
+            const offset_block = world.getv(offset_pos);
+            switch (offset_block.blockType) {
+                .Wire, .Torch => world.updated_blocks.push_back(offset_pos) catch unreachable,
+                else => {},
+            }
+        }
+    }
+}
+
+fn torchGetLightEmitted(this: *const BlockDescription, world: *const World, pos: Vec3i) u4 {
+    const block = world.getv(pos);
+    const has_signal = block.blockData > 0;
+    return if (has_signal) 15 else 0;
+}
+
+fn torchUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    var has_signal = false;
+    for (ADJACENT_OFFSETS) |offset| {
+        const offset_pos = pos.addv(offset);
+        const offset_block = world.getv(offset_pos);
+        switch (offset_block.blockType) {
+            .SignalSource => {
+                has_signal = true;
+                break;
+            },
+            .Wire => {
+                const wire_signal = @intCast(u4, offset_block.blockData & 0xF);
+                if (wire_signal > 0) {
+                    has_signal = true;
+                    break;
+                }
+            },
+            else => {},
+        }
+    }
+
+    var block = world.getv(pos);
+    block.blockData = if (has_signal) 1 else 0;
+    world.setv(pos, block);
 }

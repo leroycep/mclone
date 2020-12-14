@@ -144,43 +144,36 @@ pub const World = struct {
     }
 
     pub fn setAndUpdatev(this: *@This(), globalPos: Vec3i, block: Block) !void {
+        try this.setAndQueueUpdatev(globalPos, block);
+
+        // Update light for blocks in updated queue
+        while (this.updated_blocks.pop_front()) |updated_pos| {
+            const updated_block = this.getv(updated_pos);
+            const updated_desc = core.block.describe(updated_block);
+
+            updated_desc.update(this, updated_pos);
+
+            // Update light
+            if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
+                try this.removeLightv(updated_pos);
+            }
+            if (updated_desc.lightEmitted(this, updated_pos) > 0) {
+                try this.addLightv(updated_pos);
+            }
+            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+        }
+    }
+
+    pub fn setAndQueueUpdatev(this: *@This(), globalPos: Vec3i, block: Block) !void {
         const chunkPos = globalPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
-            const removedBlock = entry.value.getv(blockPos);
-            const torchlightLevel = this.getTorchlightv(globalPos);
 
             entry.value.setv(blockPos, block);
+            try this.updated_blocks.push_back(globalPos);
 
-            const desc = core.block.describe(block);
-
-            // TODO: Schedule block for update
-
-            // Update light
-            if (desc.isOpaque(this, globalPos) or block.blockType == .Air) {
-                try this.removeLightv(globalPos);
-            }
-
-            if (desc.lightEmitted(this, blockPos) > 0) {
-                try this.addLightv(globalPos);
-            }
-
-            try this.fillSunlight(chunkPos);
-
-            try this.updated.put(chunkPos, {});
-
-            // Update light for blocks in updated queue
-            while (this.updated_blocks.pop_front()) |updated_pos| {
-                const updated_block = this.getv(updated_pos);
-                const updated_desc = core.block.describe(updated_block);
-                // Update light
-                if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
-                    try this.removeLightv(updated_pos);
-                }
-                if (updated_desc.lightEmitted(this, updated_pos) > 0) {
-                    try this.addLightv(updated_pos);
-                }
-                try this.updated.put(updated_pos.scaleDivFloor(16), {});
+            for (ADJACENT_OFFSETS) |offset| {
+                try this.updated_blocks.push_back(globalPos.addv(offset));
             }
         }
     }
@@ -492,7 +485,7 @@ pub const World = struct {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
                     var lightLevel = topChunk.getSunlight(x, 0, z);
-                    if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, vec3i(x, CY-1, z))) {
+                    if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, vec3i(x, CY - 1, z))) {
                         var pos = Vec3i.init(x, CY - 1, z);
                         if (lightLevel == 15) {
                             chunk.setSunlightv(pos, lightLevel);
