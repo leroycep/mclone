@@ -166,7 +166,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .texForSideFn = singleTexBlock(9),
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
-        .texForSideFn = singleTexBlock(10),
+        .texForSideFn = torchGetTexForSide,
         .lightEmittedFn = torchGetLightEmitted,
         .updateFn = torchUpdate,
     };
@@ -308,6 +308,12 @@ fn torchGetLightEmitted(this: *const BlockDescription, world: *const World, pos:
     const block = world.getv(pos);
     const has_signal = block.blockData > 0;
     return if (has_signal) 15 else 0;
+}
+
+fn torchGetTexForSide(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+    const block = world.getv(pos);
+    const has_signal = block.blockData > 0;
+    return if (has_signal) 10 else 11;
 }
 
 fn torchUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
