@@ -122,7 +122,6 @@ pub const ChunkRender = struct {
     }
 
     pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: World) !void {
-        // var vertex: [CX * CY * CZ * 6 * 6]Vertex = undefined;
         var mesh: Mesh = try Mesh.init(self.allocator);
         defer mesh.deinit();
         var i: u32 = 0;

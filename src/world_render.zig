@@ -22,6 +22,15 @@ pub const WorldRenderer = struct {
         };
     }
 
+    pub fn deinit(this: *@This()) void {
+        var rendered_iter = this.renderedChunks.iterator();
+        while (rendered_iter.next()) |entry| {
+            entry.value.deinit();
+        }
+        this.world.deinit();
+        this.renderedChunks.deinit();
+    }
+
     pub fn loadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
         try this.world.loadChunkFromMemory(chunkPos, chunk);
         const gop = try this.renderedChunks.getOrPut(chunkPos);

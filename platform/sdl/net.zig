@@ -26,6 +26,12 @@ pub const Frames = union(enum) {
         return @This(){ .WaitingForSize = {} };
     }
 
+    pub fn deinit(this: *@This(), alloc: *Allocator) void {
+        if (this.* == .WaitingForData) {
+            alloc.free(this.WaitingForData.buffer);
+        }
+    }
+
     pub fn update(this: *@This(), alloc: *Allocator, reader: anytype) !?[]u8 {
         while (true) {
             switch (this.*) {
@@ -134,6 +140,11 @@ pub const FramesSocket = struct {
             return &frames_socket_opt.*.?;
         }
         return error.OutOfSockets;
+    }
+
+    pub fn deinit(this: *@This()) void {
+        this.socket.close();
+        this.frames.deinit(this.alloc);
     }
 
     pub fn update(this: *@This()) void {

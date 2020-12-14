@@ -28,6 +28,11 @@ pub const World = struct {
         };
     }
 
+    pub fn deinit(this: *@This()) void {
+        this.chunks.deinit();
+        this.updated.deinit();
+    }
+
     pub fn ensureChunkLoaded(this: *@This(), chunkPos: Vec3i) !void {
         const tracy = trace(@src());
         defer tracy.end();
@@ -467,7 +472,6 @@ pub const World = struct {
                     if (lightLevel > 1 and !chunk.isOpaque(x, CY - 1, z)) {
                         var pos = Vec3i.init(x, CY - 1, z);
                         if (lightLevel == 15) {
-
                             chunk.setSunlightv(pos, lightLevel);
                         } else {
                             chunk.setSunlightv(pos, lightLevel - 1);

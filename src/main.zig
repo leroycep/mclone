@@ -81,6 +81,7 @@ var moves: util.ArrayDeque(Move) = undefined;
 pub fn main() !void {
     try platform.run(.{
         .init = onInit,
+        .deinit = onDeinit,
         .event = onEvent,
         .update = update,
         .render = render,
@@ -90,10 +91,12 @@ pub fn main() !void {
 
 pub fn onInit(context: *platform.Context) !void {
     var vertShader = platform.glCreateShader(platform.GL_VERTEX_SHADER);
+    defer platform.glDeleteShader(vertShader);
     platform.glShaderSource(vertShader, chunk_vert_code);
     platform.glCompileShader(vertShader);
 
     var fragShader = platform.glCreateShader(platform.GL_FRAGMENT_SHADER);
+    defer platform.glDeleteShader(fragShader);
     platform.glShaderSource(fragShader, chunk_frag_code);
     platform.glCompileShader(fragShader);
 
@@ -104,10 +107,12 @@ pub fn onInit(context: *platform.Context) !void {
     platform.glUseProgram(shaderProgram);
 
     var lineVertShader = platform.glCreateShader(platform.GL_VERTEX_SHADER);
+    defer platform.glDeleteShader(lineVertShader);
     platform.glShaderSource(lineVertShader, line_vert_code);
     platform.glCompileShader(lineVertShader);
 
     var lineFragShader = platform.glCreateShader(platform.GL_FRAGMENT_SHADER);
+    defer platform.glDeleteShader(lineFragShader);
     platform.glShaderSource(lineFragShader, line_frag_code);
     platform.glCompileShader(lineFragShader);
 
@@ -157,6 +162,16 @@ pub fn onInit(context: *platform.Context) !void {
     chunks_requested = std.ArrayList(math.Vec(3, i64)).init(context.alloc);
 
     std.log.warn("end app init", .{});
+}
+
+fn onDeinit(context: *platform.Context) void {
+    worldRenderer.deinit();
+    platform.glDeleteProgram(shaderProgram);
+    platform.glDeleteProgram(lineShader);
+    moves.deinit();
+    other_player_states.deinit();
+    socket.deinit();
+    chunks_requested.deinit();
 }
 
 fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !platform.GLuint {

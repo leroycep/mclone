@@ -8,6 +8,7 @@ pub usingnamespace backend;
 
 pub const App = struct {
     init: fn (context: *backend.Context) anyerror!void,
+    deinit: fn (context: *backend.Context) void,
     event: ?fn (context: *backend.Context, event: event.Event) anyerror!void = null,
     update: ?fn (context: *backend.Context, currentTime: f64, delta: f64) anyerror!void = null,
     render: fn (context: *backend.Context, alpha: f64) anyerror!void,

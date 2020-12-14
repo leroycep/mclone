@@ -94,6 +94,7 @@ pub fn run(app: App) !void {
     log.info("application initialized", .{});
 
     try app.init(&context);
+    defer app.deinit(&context);
 
     // Timestep based on the Gaffer on Games post, "Fix Your Timestep"
     //    https://www.gafferongames.com/post/fix_your_timestep/
