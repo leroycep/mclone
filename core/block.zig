@@ -90,7 +90,7 @@ pub const Orientation = struct {
     }
 };
 
-const BlockDescription = struct {
+pub const BlockDescription = struct {
     /// Block obscures other blocks
     is_opaque: bool = true, // TODO: make enum {None, Self, All}
     is_solid: bool = true,

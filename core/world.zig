@@ -208,6 +208,13 @@ pub const World = struct {
         return false;
     }
 
+    pub fn isChunkSunlightCalculated(this: *const @This(), chunkPos: Vec3i) bool {
+        if (this.chunks.get(chunkPos)) |chunk| {
+            return chunk.isSunlightCalculated;
+        }
+        return false;
+    }
+
     const RaycastResult = struct {
         pos: Vec3i,
         side: ?Side,
@@ -448,28 +455,36 @@ pub const World = struct {
             }
         }
 
-        if (chunkPos.y >= 7) {
+        const topChunkPos = chunkPos.add(0, 1, 0);
+        if (self.isChunkSunlightCalculated(topChunkPos)) {
+            const topChunkEntry = self.chunks.getEntry(topChunkPos) orelse return error.TopChunkUnloaded;
+            var topChunk = &topChunkEntry.value;
+            var x: u8 = 0;
+            while (x < CX) : (x += 1) {
+                var z: u8 = 0;
+                while (z < CZ) : (z += 1) {
+                    var lightLevel = topChunk.getSunlight(x, 0, z);
+                    if (lightLevel > 1 and !chunk.isOpaque(x, CY - 1, z)) {
+                        var pos = Vec3i.init(x, CY - 1, z);
+                        if (lightLevel == 15) {
+
+                            chunk.setSunlightv(pos, lightLevel);
+                        } else {
+                            chunk.setSunlightv(pos, lightLevel - 1);
+                        }
+                        try lightBfsQueue.push_back(pos);
+                    }
+                }
+            }
+        } else if (chunkPos.y >= 7) {
+            std.log.debug("Top chunk not loaded", .{});
             var x: u8 = 0;
             while (x < CX) : (x += 1) {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
                     const pos = Vec3i.init(x, CY - 1, z);
-                    if (block.describe(chunk.getv(pos)).isOpaque() == false) {
+                    if (!chunk.isOpaquev(pos)) {
                         chunk.setSunlightv(pos, 15);
-                        try lightBfsQueue.push_back(pos);
-                    }
-                }
-            }
-        }
-
-        const topChunkPos = chunkPos.add(0, -1, 0);
-        if (self.chunks.get(chunkPos.add(0, -1, 0))) |topChunk| {
-            var x: u8 = 0;
-            while (x < CX) : (x += 1) {
-                var z: u8 = 0;
-                while (z < CZ) : (z += 1) {
-                    var pos = Vec3i.init(x, 0, z);
-                    if (topChunk.getSunlight(x, 0, z) > 0) {
                         try lightBfsQueue.push_back(pos);
                     }
                 }
@@ -558,5 +573,7 @@ pub const World = struct {
                 }
             }
         }
+
+        chunk.isSunlightCalculated = true;
     }
 };

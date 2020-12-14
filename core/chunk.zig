@@ -5,8 +5,10 @@ const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const Vec3i = math.Vec(3, i64);
 const VoxelTraversal = math.VoxelTraversal;
-const Block = @import("./block.zig").Block;
-const BlockType = @import("./block.zig").BlockType;
+const core = @import("./core.zig");
+const Block = core.block.Block;
+const BlockType = core.block.BlockType;
+const BlockDescription = core.block.BlockDescription;
 
 pub const CX = 16;
 pub const CY = 16;
@@ -18,12 +20,14 @@ pub const Chunk = struct {
     blk: [CX][CY][CZ]Block,
     light: [CX][CY][CZ]Light,
     changed: bool,
+    isSunlightCalculated: bool,
 
     pub fn init() @This() {
         return @This(){
             .blk = std.mem.zeroes([CX][CY][CZ]Block),
             .light = std.mem.zeroes([CX][CY][CZ]Light),
             .changed = true,
+            .isSunlightCalculated = false,
         };
     }
 
@@ -88,6 +92,18 @@ pub const Chunk = struct {
 
     pub fn setTorchlightv(self: *@This(), pos: Vec3i, level: u8) void {
         self.setTorchlight(pos.x, pos.y, pos.z, level);
+    }
+
+    pub fn describe(self: *@This(), x: i64, y: i64, z: i64) BlockDescription {
+        return core.block.describe(self.get(x, y, z));
+    }
+
+    pub fn isOpaque(self: *@This(), x: i64, y: i64, z: i64) bool {
+        return self.describe(x, y, z).isOpaque();
+    }
+
+    pub fn isOpaquev(self: *@This(), pos: Vec3i) bool {
+        return self.isOpaque(pos.x, pos.y, pos.z);
     }
 
     pub fn fill(self: *@This(), blockType: BlockType) void {
