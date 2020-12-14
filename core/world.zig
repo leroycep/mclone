@@ -484,8 +484,9 @@ pub const World = struct {
             while (x < CX) : (x += 1) {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
-                    var lightLevel = topChunk.getSunlight(x, 0, z);
-                    if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, vec3i(x, CY - 1, z))) {
+                    const lightLevel = topChunk.getSunlight(x, 0, z);
+                    const globalPos = chunkPos.scale(16).add(x, CY - 1, z);
+                    if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, globalPos)) {
                         var pos = Vec3i.init(x, CY - 1, z);
                         if (lightLevel == 15) {
                             chunk.setSunlightv(pos, lightLevel);
@@ -503,7 +504,8 @@ pub const World = struct {
                 var z: u8 = 0;
                 while (z < CZ) : (z += 1) {
                     const pos = Vec3i.init(x, CY - 1, z);
-                    if (!chunk.describev(pos).isOpaque(self, pos)) {
+                    const globalPos = chunkPos.scale(16).add(x, CY - 1, z);
+                    if (!chunk.describev(pos).isOpaque(self, globalPos)) {
                         chunk.setSunlightv(pos, 15);
                         try lightBfsQueue.push_back(pos);
                     }
@@ -535,10 +537,15 @@ pub const World = struct {
                     continue;
                 }
 
-                if (block.describe(chunk.getv(offset_pos)).isOpaque(self, offset_pos) == false and
+                const globalPos = chunkPos.scale(16).addv(offset_pos);
+                if (block.describe(chunk.getv(offset_pos)).isOpaque(self, globalPos) == false and
                     calculatedLevel >= chunk.getSunlightv(offset_pos))
                 {
-                    chunk.setSunlightv(offset_pos, lightLevel - 1);
+                    if (offset.y < 0) {
+                        chunk.setSunlightv(offset_pos, lightLevel);
+                    } else {
+                        chunk.setSunlightv(offset_pos, lightLevel - 1);
+                    }
                     try lightBfsQueue.push_back(offset_pos);
                 }
             }
