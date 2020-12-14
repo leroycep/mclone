@@ -98,6 +98,7 @@ pub const Orientation = struct {
 };
 
 pub const BlockDescription = struct {
+    isUsedForAO: bool = true,
     isOpaqueFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
     isSolidFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
     isVisibleFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
@@ -130,6 +131,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
     var descriptions: [256]BlockDescription = undefined;
 
     descriptions[@enumToInt(BlockType.Air)] = .{
+        .isUsedForAO = false,
         .isOpaqueFn = returnFalseFn,
         .isSolidFn = returnFalseFn,
         .isVisibleFn = returnFalseFn,
@@ -163,6 +165,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
         //.signal_level = .Accept,
     };
     descriptions[@enumToInt(BlockType.Wire)] = .{
+        .isUsedForAO = false,
         .isOpaqueFn = returnFalseFn,
         .isSolidFn = returnFalseFn,
         //.rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },

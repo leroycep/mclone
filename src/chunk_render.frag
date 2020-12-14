@@ -14,7 +14,8 @@ void main(void) {
   } else {
     FragColor = texture(textureArray, vec3(fract(texcoord.x + texcoord.z), texcoord.y, texcoord.w)) * 0.85;
   }
-  FragColor.xyz = mix(FragColor.xyz * 0.1, FragColor.xyz, fragment_light);
+  lowp float shadow = min(fragment_ao, fragment_light);
+  FragColor.xyz = mix(FragColor.xyz * 0.1, FragColor.xyz, shadow);
   if (FragColor.a < 0.5)
     discard;
 }
