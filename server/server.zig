@@ -192,6 +192,7 @@ pub fn main() !void {
 
                                 for (world.updated.items()) |updated_chunk_entry| {
                                     const chunk_pos = updated_chunk_entry.key;
+                                    try world.fillSunlight(chunk_pos);
                                     if (world.chunks.get(chunk_pos)) |chunk| {
                                         broadcastPacket(alloc, &clients, ServerDatagram{
                                             .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
