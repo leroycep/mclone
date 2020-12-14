@@ -276,8 +276,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                         var torchlight: u16 = worldRenderer.world.getTorchlightv(block_pos);
                         var sunlight: u16 = worldRenderer.world.getSunlightv(block_pos);
                         var totalLight = (@intToFloat(f32, torchlight) / 16) + (@intToFloat(f32, sunlight) / 16);
+
                         std.log.debug("Pos: {}, Light: {} {}, Div: {}", .{ block_pos, sunlight, torchlight, totalLight });
                     }
+
+                    const block = worldRenderer.world.getv(raycast.pos);
+                    const desc = core.block.describe(block);
+                    const signal = desc.signalLevel(block.blockData);
+                    std.log.debug("Signal: {}", .{ signal });
                 }
             },
             .Right => {

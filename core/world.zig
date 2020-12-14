@@ -19,12 +19,21 @@ pub const World = struct {
     allocator: *std.mem.Allocator,
     chunks: std.AutoHashMap(Vec3i, Chunk),
     updated: std.AutoArrayHashMap(Vec3i, void),
+    updated_blocks: ArrayDeque(Vec3i),
+
+    const BlockUpdate = struct {
+        // The block that was updated
+        pos: Vec3i,
+        // The side it was updated from
+        side: ?Side,
+    };
 
     pub fn init(allocator: *std.mem.Allocator) !@This() {
         return @This(){
             .allocator = allocator,
             .chunks = std.AutoHashMap(Vec3i, Chunk).init(allocator),
             .updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
+            .updated_blocks = ArrayDeque(Vec3i).init(allocator),
         };
     }
 
@@ -120,6 +129,8 @@ pub const World = struct {
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
             entry.value.setv(blockPos, blockType);
+        } else {
+            std.log.debug("Block is not in loaded chunk: {} {}", .{ globalPos, blockType });
         }
     }
 
@@ -133,16 +144,68 @@ pub const World = struct {
             entry.value.setv(blockPos, block);
 
             const desc = core.block.describe(block);
+
+            const removed_desc = core.block.describe(removedBlock);
+            // Update signals
+            if (removed_desc.signal_level != .None) {
+                const removed_signal_level = removed_desc.signalLevel(removedBlock.blockData);
+                try this.removeSignalv(globalPos, removed_signal_level);
+            }
+            switch (desc.signal_level) {
+                .None => {},
+                .Emit => |level| try this.addSignalv(globalPos, level),
+                .Transmit, .Accept => {
+                    const OFFSETS_TO_CHECK = [_]Vec3i{
+                        vec3i(-1, 0, 0),
+                        vec3i(1, 0, 0),
+                        vec3i(0, -1, 0),
+                        vec3i(0, 1, 0),
+                        vec3i(0, 0, -1),
+                        vec3i(0, 0, 1),
+                    };
+                    var max_signal_level: u4 = 0;
+                    for (OFFSETS_TO_CHECK) |offset| {
+                        const offset_pos = globalPos.addv(offset);
+                        const offset_block = this.getv(offset_pos);
+                        const offset_desc = core.block.describe(offset_block);
+                        const offset_signal = offset_desc.signalLevel(offset_block.blockData);
+                        if (offset_signal > 0) {
+                            max_signal_level = offset_signal - 1;
+                        }
+                    }
+                    if (max_signal_level > 0) try this.addSignalv(globalPos, max_signal_level);
+                },
+            }
+
+            // Update light
             if (desc.isOpaque() or block.blockType == .Air) {
                 try this.removeLightv(globalPos);
             }
-            if (desc.lightLevel(block.blockData) > 0) {
+
+            // Make sure to get the updated block data, in case it was updated in signal
+            const incase_updated_block = entry.value.getv(blockPos);
+
+            if (desc.lightLevel(incase_updated_block.blockData) > 0) {
                 try this.addLightv(globalPos);
             }
 
             try this.fillSunlight(chunkPos);
 
             try this.updated.put(chunkPos, {});
+
+            // Update light for blocks in updated queue
+            while (this.updated_blocks.pop_front()) |updated_pos| {
+                const updated_block = this.getv(updated_pos);
+                const updated_desc = core.block.describe(updated_block);
+                // Update light
+                if (updated_desc.isOpaque() or updated_block.blockType == .Air) {
+                    try this.removeLightv(updated_pos);
+                }
+                if (updated_desc.lightLevel(updated_block.blockData) > 0) {
+                    try this.addLightv(updated_pos);
+                }
+                try this.updated.put(updated_pos.scaleDivFloor(16), {});
+            }
         }
     }
 
@@ -420,7 +483,6 @@ pub const World = struct {
         const tracy = trace(@src());
         defer tracy.end();
 
-        std.log.debug("Filling sunlight at {}", .{chunkPos});
         const block = @import("./block.zig");
         const CX = core.chunk.CX;
         const CY = core.chunk.CY;
@@ -564,5 +626,109 @@ pub const World = struct {
         }
 
         chunk.isSunlightCalculated = true;
+    }
+
+    pub fn addSignalv(self: *@This(), placePos: Vec3i, newSignalLevel: u4) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
+        var signalBfsQueue = ArrayDeque(SignalPropogation).init(self.allocator);
+        defer signalBfsQueue.deinit();
+
+        try signalBfsQueue.push_back(.{ .pos = placePos, .signal_level = newSignalLevel });
+
+        try self.propogateSignal(&signalBfsQueue);
+    }
+
+    pub fn removeSignalv(self: *@This(), placePos: Vec3i, prevSignalLevel: u4) !void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
+        var signalRemovalBfsQueue = ArrayDeque(SignalPropogation).init(self.allocator);
+        defer signalRemovalBfsQueue.deinit();
+        var signalBfsQueue = ArrayDeque(SignalPropogation).init(self.allocator);
+        defer signalBfsQueue.deinit();
+
+        {
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(-1, 0, 0), .signal_level = prevSignalLevel });
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(1, 0, 0), .signal_level = prevSignalLevel });
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, -1, 0), .signal_level = prevSignalLevel });
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 1, 0), .signal_level = prevSignalLevel });
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, -1), .signal_level = prevSignalLevel });
+            try signalRemovalBfsQueue.push_back(.{ .pos = placePos.add(0, 0, 1), .signal_level = prevSignalLevel });
+        }
+
+        while (signalRemovalBfsQueue.pop_front()) |node| {
+            const pos = node.pos;
+            const block = self.getv(pos);
+            const desc = core.block.describe(block);
+
+            const signal_level = desc.signalLevel(block.blockData);
+            const expected_signal_level = node.signal_level;
+
+            var new_block = block;
+            new_block.blockData = desc.dataWithSignalLevel(block.blockData, 0);
+            self.setv(pos, new_block);
+            try self.updated_blocks.push_back(pos);
+
+            if (signal_level != 0 and signal_level < expected_signal_level) {
+                if (desc.signal_level == .Emit) {
+                    try signalBfsQueue.push_back(.{ .pos = pos, .signal_level = signal_level });
+                    continue;
+                }
+
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(-1, 0, 0), .signal_level = signal_level });
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(1, 0, 0), .signal_level = signal_level });
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(0, -1, 0), .signal_level = signal_level });
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 1, 0), .signal_level = signal_level });
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, -1), .signal_level = signal_level });
+                try signalRemovalBfsQueue.push_back(.{ .pos = pos.add(0, 0, 1), .signal_level = signal_level });
+            } else if (signal_level >= expected_signal_level) {
+                try signalBfsQueue.push_back(.{ .pos = pos, .signal_level = signal_level });
+            }
+        }
+
+        try self.propogateSignal(&signalBfsQueue);
+    }
+
+    const SignalPropogation = struct {
+        pos: Vec3i,
+        signal_level: u4,
+    };
+
+    pub fn propogateSignal(self: *@This(), signalBfsQueue: *ArrayDeque(SignalPropogation)) !void {
+        var first = true;
+        while (signalBfsQueue.pop_front()) |propogation| {
+            defer first = false;
+            if (propogation.signal_level == 0) continue;
+
+            const pos = propogation.pos;
+            const block = self.getv(pos);
+            const desc = core.block.describe(block);
+
+            const current_signal_level = desc.signalLevel(block.blockData);
+
+            var send_to_next: u4 = 0;
+            if (first and desc.signal_level == .Emit) {
+                send_to_next = desc.signal_level.Emit - 1;
+            } else if (current_signal_level < propogation.signal_level) {
+                var new_block = block;
+                new_block.blockData = desc.dataWithSignalLevel(block.blockData, propogation.signal_level);
+                self.setv(pos, new_block);
+                try self.updated_blocks.push_back(pos);
+                if (desc.signal_level == .Transmit) {
+                    send_to_next = propogation.signal_level - 1;
+                }
+            }
+
+            if (send_to_next > 0) {
+                try signalBfsQueue.push_back(.{ .pos = pos.add(-1, 0, 0), .signal_level = send_to_next });
+                try signalBfsQueue.push_back(.{ .pos = pos.add(1, 0, 0), .signal_level = send_to_next });
+                try signalBfsQueue.push_back(.{ .pos = pos.add(0, -1, 0), .signal_level = send_to_next });
+                try signalBfsQueue.push_back(.{ .pos = pos.add(0, 1, 0), .signal_level = send_to_next });
+                try signalBfsQueue.push_back(.{ .pos = pos.add(0, 0, -1), .signal_level = send_to_next });
+                try signalBfsQueue.push_back(.{ .pos = pos.add(0, 0, 1), .signal_level = send_to_next });
+            }
+        }
     }
 };

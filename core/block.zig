@@ -110,7 +110,14 @@ pub const BlockDescription = struct {
     },
     light_level: union(enum) {
         Static: u4,
+        Signaled: u4,
     } = .{ .Static = 0 },
+    signal_level: union(enum) {
+        None: void,
+        Emit: u4,
+        Transmit: void,
+        Accept: void,
+    } = .None,
 
     pub fn isOpaque(this: @This()) bool {
         return this.is_opaque;
@@ -164,6 +171,28 @@ pub const BlockDescription = struct {
     pub fn lightLevel(this: @This(), data: u16) u4 {
         switch (this.light_level) {
             .Static => |level| return level,
+            .Signaled => |level| {
+                if (@intCast(u4, data & 0x000F) > 0) {
+                    return level;
+                } else {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    pub fn signalLevel(this: @This(), data: u16) u4 {
+        switch (this.signal_level) {
+            .None => return 0,
+            .Emit => |level| return level,
+            .Transmit, .Accept => return @intCast(u4, data & 0x000F),
+        }
+    }
+
+    pub fn dataWithSignalLevel(this: @This(), data: u16, newSignalLevel: u4) u16 {
+        switch (this.signal_level) {
+            .None, .Emit => return data,
+            .Transmit, .Accept => return (data & 0xFFF0) | newSignalLevel,
         }
     }
 };
@@ -200,16 +229,19 @@ const DESCRIPTIONS = comptime describe_blocks: {
     };
     descriptions[@enumToInt(BlockType.Torch)] = .{
         .rendering = .{ .Single = 10 },
-        .light_level = .{ .Static = 15 },
+        .light_level = .{ .Signaled = 15 },
+        .signal_level = .Accept,
     };
     descriptions[@enumToInt(BlockType.Wire)] = .{
         .is_opaque = false,
         .is_solid = false,
         .rendering = .{ .Wire = [6]u7{ 12, 13, 14, 15, 16, 17 } },
+        .signal_level = .Transmit,
     };
     descriptions[@enumToInt(BlockType.SignalSource)] = .{
         .rendering = .{ .Single = 18 },
         .light_level = .{ .Static = 4 },
+        .signal_level = .{ .Emit = 15 },
     };
 
     break :describe_blocks descriptions;
