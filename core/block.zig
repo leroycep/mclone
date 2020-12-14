@@ -289,7 +289,9 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
     }
 
     const new_signal_value = if (max_signal_value == 0) 0 else max_signal_value - 1;
-    if (new_signal_value != current_signal) {
+    if (new_signal_value < current_signal) {
+        removeSignalv(world, pos, current_signal) catch unreachable;
+    } else if (new_signal_value > current_signal) {
         block.blockData = new_signal_value;
         world.setv(pos, block);
 
@@ -300,6 +302,52 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
                 .Wire, .Torch => world.updated_blocks.push_back(offset_pos) catch unreachable,
                 else => {},
             }
+        }
+    }
+}
+
+pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void {
+    const ArrayDeque = @import("util").ArrayDeque;
+
+    const SignalPropogation = struct {
+        pos: Vec3i,
+        signal_level: u4,
+    };
+
+    var signalRemovalBfsQueue = ArrayDeque(SignalPropogation).init(world.allocator);
+    defer signalRemovalBfsQueue.deinit();
+
+    for (ADJACENT_OFFSETS) |offset| {
+        try signalRemovalBfsQueue.push_back(.{
+            .pos = placePos.addv(offset),
+            .signal_level = prevSignalLevel,
+        });
+    }
+
+    while (signalRemovalBfsQueue.pop_front()) |node| {
+        const pos = node.pos;
+        var block = world.getv(pos);
+
+        switch (block.blockType) {
+            .Wire => {
+                const signal_level = @intCast(u4, block.blockData);
+                const expected_signal_level = node.signal_level;
+
+                block.blockData = 0;
+                world.setv(pos, block);
+                try world.updated_blocks.push_back(pos);
+
+                if (signal_level != 0 and signal_level < expected_signal_level) {
+                    for (ADJACENT_OFFSETS) |offset| {
+                        try signalRemovalBfsQueue.push_back(.{
+                            .pos = pos.addv(offset),
+                            .signal_level = signal_level,
+                        });
+                    }
+                }
+            },
+            .Torch => try world.updated_blocks.push_back(pos),
+            else => {},
         }
     }
 }
