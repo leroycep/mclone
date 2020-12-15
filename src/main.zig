@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const platform = @import("platform");
+const gl = platform.gl;
 const util = @import("util");
 const math = @import("math");
 const Vec3f = math.Vec(3, f64);
@@ -29,17 +30,17 @@ const chunk_frag_code = @embedFile("chunk_render.frag");
 const line_vert_code = @embedFile("line.vert");
 const line_frag_code = @embedFile("line.frag");
 
-var shaderProgram: platform.GLuint = undefined;
-var lineShader: platform.GLuint = undefined;
-var projectionMatrixUniform: platform.GLint = undefined;
-var modelTransformUniform: platform.GLint = undefined;
-var daytimeUniform: platform.GLint = undefined;
+var shaderProgram: gl.GLuint = undefined;
+var lineShader: gl.GLuint = undefined;
+var projectionMatrixUniform: gl.GLint = undefined;
+var modelTransformUniform: gl.GLint = undefined;
+var daytimeUniform: gl.GLint = undefined;
 var daytime: u32 = 0;
 
 var worldRenderer: WorldRenderer = undefined;
-var cursor_vbo: platform.GLuint = undefined;
+var cursor_vbo: gl.GLuint = undefined;
 
-var tilesetTex: platform.GLuint = undefined;
+var tilesetTex: gl.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
 var client_id: u64 = undefined;
@@ -90,46 +91,45 @@ pub fn main() !void {
 }
 
 pub fn onInit(context: *platform.Context) !void {
-    var vertShader = platform.glCreateShader(platform.GL_VERTEX_SHADER);
-    defer platform.glDeleteShader(vertShader);
-    platform.glShaderSource(vertShader, chunk_vert_code);
-    platform.glCompileShader(vertShader);
+    var vertShader = gl.createShader(gl.VERTEX_SHADER);
+    defer gl.deleteShader(vertShader);
+    gl.shaderSourceZ(vertShader, chunk_vert_code);
+    gl.compileShader(vertShader);
 
-    var fragShader = platform.glCreateShader(platform.GL_FRAGMENT_SHADER);
-    defer platform.glDeleteShader(fragShader);
-    platform.glShaderSource(fragShader, chunk_frag_code);
-    platform.glCompileShader(fragShader);
+    var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    defer gl.deleteShader(fragShader);
+    gl.shaderSourceZ(fragShader, chunk_frag_code);
+    gl.compileShader(fragShader);
 
-    shaderProgram = platform.glCreateProgram();
-    platform.glAttachShader(shaderProgram, vertShader);
-    platform.glAttachShader(shaderProgram, fragShader);
-    platform.glLinkProgram(shaderProgram);
-    platform.glUseProgram(shaderProgram);
+    shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, vertShader);
+    gl.attachShader(shaderProgram, fragShader);
+    gl.linkProgram(shaderProgram);
+    gl.useProgram(shaderProgram);
 
-    var lineVertShader = platform.glCreateShader(platform.GL_VERTEX_SHADER);
-    defer platform.glDeleteShader(lineVertShader);
-    platform.glShaderSource(lineVertShader, line_vert_code);
-    platform.glCompileShader(lineVertShader);
+    var lineVertShader = gl.createShader(gl.VERTEX_SHADER);
+    defer gl.deleteShader(lineVertShader);
+    gl.shaderSourceZ(lineVertShader, line_vert_code);
+    gl.compileShader(lineVertShader);
 
-    var lineFragShader = platform.glCreateShader(platform.GL_FRAGMENT_SHADER);
-    defer platform.glDeleteShader(lineFragShader);
-    platform.glShaderSource(lineFragShader, line_frag_code);
-    platform.glCompileShader(lineFragShader);
+    var lineFragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    defer gl.deleteShader(lineFragShader);
+    gl.shaderSourceZ(lineFragShader, line_frag_code);
+    gl.compileShader(lineFragShader);
 
-    lineShader = platform.glCreateProgram();
-    platform.glAttachShader(lineShader, lineVertShader);
-    platform.glAttachShader(lineShader, lineFragShader);
-    platform.glLinkProgram(lineShader);
-    // platform.glUseProgram(lineShader);
+    lineShader = gl.createProgram();
+    gl.attachShader(lineShader, lineVertShader);
+    gl.attachShader(lineShader, lineFragShader);
+    gl.linkProgram(lineShader);
 
     // Set up VAO
     worldRenderer = try WorldRenderer.init(context.alloc);
 
-    platform.glGenBuffers(1, &cursor_vbo);
+    gl.genBuffers(1, &cursor_vbo);
 
-    projectionMatrixUniform = platform.glGetUniformLocation(shaderProgram, "mvp");
-    modelTransformUniform = platform.glGetUniformLocation(shaderProgram, "modelTransform");
-    daytimeUniform = platform.glGetUniformLocation(shaderProgram, "daytime");
+    projectionMatrixUniform = gl.getUniformLocation(shaderProgram, "mvp");
+    modelTransformUniform = gl.getUniformLocation(shaderProgram, "modelTransform");
+    daytimeUniform = gl.getUniformLocation(shaderProgram, "daytime");
 
     try context.setRelativeMouseMode(true);
 
@@ -167,34 +167,34 @@ pub fn onInit(context: *platform.Context) !void {
 
 fn onDeinit(context: *platform.Context) void {
     worldRenderer.deinit();
-    platform.glDeleteProgram(shaderProgram);
-    platform.glDeleteProgram(lineShader);
+    gl.deleteProgram(shaderProgram);
+    gl.deleteProgram(lineShader);
     moves.deinit();
     other_player_states.deinit();
     socket.deinit();
     chunks_requested.deinit();
 }
 
-fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !platform.GLuint {
-    var texture: platform.GLuint = undefined;
-    platform.glGenTextures(1, &texture);
-    platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, texture);
-    platform.glTexStorage3D(platform.GL_TEXTURE_2D_ARRAY, 2, platform.GL_RGBA8, 16, 16, @intCast(c_int, filepaths.len + 1));
+fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !gl.GLuint {
+    var texture: gl.GLuint = undefined;
+    gl.genTextures(1, &texture);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 2, gl.RGBA8, 16, 16, @intCast(c_int, filepaths.len + 1));
 
     for (filepaths) |filepath, i| {
         try loadTile(alloc, @intCast(c_int, i + 1), filepath);
     }
 
-    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_WRAP_S, platform.GL_REPEAT);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_WRAP_T, platform.GL_REPEAT);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MIN_FILTER, platform.GL_NEAREST);
-    platform.glTexParameteri(platform.GL_TEXTURE_2D_ARRAY, platform.GL_TEXTURE_MAG_FILTER, platform.GL_NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-    platform.glGenerateMipmap(platform.GL_TEXTURE_2D);
+    gl.generateMipmap(gl.TEXTURE_2D);
     return texture;
 }
 
-fn loadTile(alloc: *std.mem.Allocator, layer: platform.GLint, filepath: []const u8) !void {
+fn loadTile(alloc: *std.mem.Allocator, layer: gl.GLint, filepath: []const u8) !void {
     const cwd = std.fs.cwd();
     const image_contents = try cwd.readFileAlloc(alloc, filepath, 50000);
     defer alloc.free(image_contents);
@@ -218,7 +218,7 @@ fn loadTile(alloc: *std.mem.Allocator, layer: platform.GLint, filepath: []const 
         pixelData[i * 4 + 3] = integer_color.A;
     }
 
-    platform.glTexSubImage3D(platform.GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 1, platform.GL_RGBA, platform.GL_UNSIGNED_BYTE, pixelData.ptr);
+    gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 1, gl.RGBA, gl.UNSIGNED_BYTE, pixelData.ptr);
 }
 
 pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
@@ -502,7 +502,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 }
 
 pub fn render(context: *platform.Context, alpha: f64) !void {
-    platform.glUseProgram(shaderProgram);
+    gl.useProgram(shaderProgram);
 
     const render_pos = player_state.position.scale(alpha).addv(previous_player_state.position.scale(1 - alpha));
 
@@ -521,32 +521,32 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
-    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
+    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &projection.v);
 
     // Clear the screen
-    platform.glClearColor(0.5, 0.5, 0.5, 1.0);
-    platform.glClear(platform.GL_COLOR_BUFFER_BIT | platform.GL_DEPTH_BUFFER_BIT);
-    platform.glViewport(0, 0, screen_size_int.x, screen_size_int.y);
-    platform.glEnable(platform.GL_POLYGON_OFFSET_FILL);
+    gl.clearColor(0.5, 0.5, 0.5, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
+    gl.enable(gl.POLYGON_OFFSET_FILL);
 
-    platform.glPolygonOffset(1, 0.25);
+    gl.polygonOffset(1, 0.25);
 
-    platform.glBindTexture(platform.GL_TEXTURE_2D_ARRAY, tilesetTex);
-    platform.glUniform1ui(daytimeUniform, daytime);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tilesetTex);
+    gl.uniform1ui(daytimeUniform, daytime);
     worldRenderer.render(shaderProgram, modelTransformUniform);
 
     // Line Drawing Code
-    platform.glUseProgram(lineShader);
-    platform.glEnable(platform.GL_POLYGON_OFFSET_FILL);
-    platform.glPolygonOffset(1, 0);
-    platform.glLineWidth(1);
+    gl.useProgram(lineShader);
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(1, 0);
+    gl.lineWidth(1);
     // Draw box around selected box
-    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &projection.v);
-    platform.glUniformMatrix4fv(modelTransformUniform, 1, platform.GL_FALSE, &math.Mat4(f32).ident().v);
-    platform.glBindBuffer(platform.GL_ARRAY_BUFFER, cursor_vbo);
-    var attribute_coord = @intCast(platform.GLuint, platform.glGetAttribLocation(shaderProgram, "coord"));
-    platform.glVertexAttribPointer(attribute_coord, 4, platform.GL_FLOAT, platform.GL_FALSE, 0, null);
-    platform.glEnableVertexAttribArray(attribute_coord);
+    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &projection.v);
+    gl.uniformMatrix4fv(modelTransformUniform, 1, gl.FALSE, &math.Mat4(f32).ident().v);
+    gl.bindBuffer(gl.ARRAY_BUFFER, cursor_vbo);
+    var attribute_coord = @intCast(gl.GLuint, gl.getAttribLocation(shaderProgram, "coord"));
+    gl.vertexAttribPointer(attribute_coord, 4, gl.FLOAT, gl.FALSE, 0, null);
+    gl.enableVertexAttribArray(attribute_coord);
 
     var other_player_states_iter = other_player_states.iterator();
     while (other_player_states_iter.next()) |entry| {
@@ -578,13 +578,13 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
             .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
         };
 
-        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, gl.DYNAMIC_DRAW);
 
-        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+        gl.drawArrays(gl.LINES, 0, 24);
     }
 
-    platform.glDisable(platform.GL_POLYGON_OFFSET_FILL);
-    platform.glDisable(platform.GL_CULL_FACE);
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    gl.disable(gl.CULL_FACE);
 
     if (worldRenderer.world.raycast(render_pos, camera_angle, 5)) |raycast| {
         const selected = raycast.pos.intToFloat(f32);
@@ -615,9 +615,9 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
             .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
         };
 
-        platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, platform.GL_DYNAMIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, gl.DYNAMIC_DRAW);
 
-        platform.glDrawArrays(platform.GL_LINES, 0, 24);
+        gl.drawArrays(gl.LINES, 0, 24);
     }
 
     const cross = [4][4]f32{
@@ -627,9 +627,9 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
         .{ 0, 0.05, -2, 10 },
     };
 
-    platform.glDisable(platform.GL_DEPTH_TEST);
-    platform.glUniformMatrix4fv(projectionMatrixUniform, 1, platform.GL_FALSE, &perspective.floatCast(f32).v);
-    platform.glBufferData(platform.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, platform.GL_DYNAMIC_DRAW);
+    gl.disable(gl.DEPTH_TEST);
+    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &perspective.floatCast(f32).v);
+    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, gl.DYNAMIC_DRAW);
 
-    platform.glDrawArrays(platform.GL_LINES, 0, cross.len);
+    gl.drawArrays(gl.LINES, 0, cross.len);
 }

@@ -8,6 +8,7 @@ const Vec3i = math.Vec(3, i64);
 const vec3i = Vec3i.init;
 const ChunkRender = @import("./chunk_render.zig").ChunkRender;
 const platform = @import("platform");
+const gl = platform.gl;
 
 pub const WorldRenderer = struct {
     allocator: *Allocator,
@@ -40,11 +41,11 @@ pub const WorldRenderer = struct {
         try gop.entry.value.update(chunk, chunkPos, &this.world);
     }
 
-    pub fn render(this: @This(), shader: platform.GLuint, modelTranformUniform: platform.GLint) void {
+    pub fn render(this: @This(), shader: gl.GLuint, modelTranformUniform: gl.GLint) void {
         var rendered_iter = this.renderedChunks.iterator();
         while (rendered_iter.next()) |entry| {
             const mat = math.Mat4(f32).translation(entry.key.intToFloat(f32).scale(16));
-            platform.glUniformMatrix4fv(modelTranformUniform, 1, platform.GL_FALSE, &mat.v);
+            gl.uniformMatrix4fv(modelTranformUniform, 1, gl.FALSE, &mat.v);
             entry.value.render(shader);
         }
     }

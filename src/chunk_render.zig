@@ -7,10 +7,11 @@ const Side = core.chunk.Side;
 const Chunk = core.chunk.Chunk;
 const World = core.World;
 const platform = @import("platform");
+const gl = platform.gl;
 const Vec3i = @import("math").Vec(3, i64);
 
-const Byte4 = [4]platform.GLbyte;
-const GLuint = platform.GLuint;
+const Byte4 = [4]gl.GLbyte;
+const GLuint = gl.GLuint;
 
 const CX = core.chunk.CX;
 const CY = core.chunk.CY;
@@ -26,8 +27,8 @@ fn vertexAO(side1: bool, side2: bool, corner: bool) u2 {
     return 3 - (s1 + s2 + co);
 }
 
-const GLbyte = platform.GLbyte;
-const Vertex = [9]platform.GLbyte;
+const GLbyte = gl.GLbyte;
+const Vertex = [9]gl.GLbyte;
 
 pub const QuadBuildOptions = struct {
     direction: block.Side,
@@ -109,7 +110,7 @@ pub const ChunkRender = struct {
 
     pub fn init(alloc: *std.mem.Allocator) @This() {
         var vbo: GLuint = 0;
-        platform.glGenBuffers(1, &vbo);
+        gl.genBuffers(1, &vbo);
         var this = @This(){
             .elements = 0,
             .vbo = vbo,
@@ -119,7 +120,7 @@ pub const ChunkRender = struct {
     }
 
     pub fn deinit(self: *@This()) void {
-        platform.glDeleteBuffers(1, &self.vbo);
+        gl.deleteBuffers(1, &self.vbo);
     }
 
     pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: *const World) !void {
@@ -147,8 +148,8 @@ pub const ChunkRender = struct {
                     }
 
                     if (blk.blockType == .Wire) {
-                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Top));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos));
+                        const tex = -@bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .Top));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos));
                         const opt = mesh.addUpQuad(QuadBuildOptions{
                             .direction = .Top,
                             .x = x,
@@ -162,8 +163,8 @@ pub const ChunkRender = struct {
                     }
                     // View from negative x
                     if (world.isOpaquev(global_pos.add(-1, 0, 0)) == false) {
-                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .West));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(-1, 0, 0)));
+                        const tex = @bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .West));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(-1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(-1, 1, 0))).isUsedForAO;
                         const bottom = block.describe(world.getv(global_pos.add(-1, -1, 0))).isUsedForAO;
                         const north = block.describe(world.getv(global_pos.add(-1, 0, 1))).isUsedForAO;
@@ -182,8 +183,8 @@ pub const ChunkRender = struct {
 
                     // View from positive x
                     if (world.isOpaquev(global_pos.add(1, 0, 0)) == false) {
-                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .East));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(1, 0, 0)));
+                        const tex = @bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .East));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(1, 0, 0)));
                         const top = block.describe(world.getv(global_pos.add(1, 1, 0))).isUsedForAO;
                         const bottom = block.describe(world.getv(global_pos.add(1, -1, 0))).isUsedForAO;
                         const north = block.describe(world.getv(global_pos.add(1, 0, 1))).isUsedForAO;
@@ -202,8 +203,8 @@ pub const ChunkRender = struct {
 
                     // View from negative y
                     if (world.isOpaquev(global_pos.add(0, -1, 0)) == false) {
-                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Bottom));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, -1, 0)));
+                        const tex = -@bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .Bottom));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(0, -1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, -1, 0))).isUsedForAO;
                         const west = block.describe(world.getv(global_pos.add(-1, -1, 0))).isUsedForAO;
                         const north = block.describe(world.getv(global_pos.add(0, -1, 1))).isUsedForAO;
@@ -222,8 +223,8 @@ pub const ChunkRender = struct {
 
                     // View from positive y
                     if (world.isOpaquev(global_pos.add(0, 1, 0)) == false) {
-                        const tex = -@bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .Top));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 1, 0)));
+                        const tex = -@bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .Top));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(0, 1, 0)));
                         const east = block.describe(world.getv(global_pos.add(1, 1, 0))).isUsedForAO;
                         const west = block.describe(world.getv(global_pos.add(-1, 1, 0))).isUsedForAO;
                         const north = block.describe(world.getv(global_pos.add(0, 1, 1))).isUsedForAO;
@@ -242,8 +243,8 @@ pub const ChunkRender = struct {
 
                     // View from negative z
                     if (world.isOpaquev(global_pos.add(0, 0, -1)) == false) {
-                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .South));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, -1)));
+                        const tex = @bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .South));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(0, 0, -1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, -1))).isUsedForAO;
                         const west = block.describe(world.getv(global_pos.add(-1, 0, -1))).isUsedForAO;
                         const top = block.describe(world.getv(global_pos.add(0, 1, -1))).isUsedForAO;
@@ -262,8 +263,8 @@ pub const ChunkRender = struct {
 
                     // View from positive z
                     if (world.isOpaquev(global_pos.add(0, 0, 1)) == false) {
-                        const tex = @bitCast(platform.GLbyte, desc.texForSide(world, global_pos, .North));
-                        const light = @bitCast(platform.GLbyte, world.getLightv(global_pos.add(0, 0, 1)));
+                        const tex = @bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .North));
+                        const light = @bitCast(gl.GLbyte, world.getLightv(global_pos.add(0, 0, 1)));
                         const east = block.describe(world.getv(global_pos.add(1, 0, 1))).isUsedForAO;
                         const west = block.describe(world.getv(global_pos.add(-1, 0, 1))).isUsedForAO;
                         const top = block.describe(world.getv(global_pos.add(0, 1, 1))).isUsedForAO;
@@ -284,67 +285,67 @@ pub const ChunkRender = struct {
         }
 
         self.elements = mesh.vertex.items.len;
-        platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
-        platform.glBufferData(platform.GL_ARRAY_BUFFER, @intCast(c_long, mesh.vertex.items.len) * @sizeOf(Vertex), mesh.vertex.items.ptr, platform.GL_STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, self.vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, @intCast(c_long, mesh.vertex.items.len) * @sizeOf(Vertex), mesh.vertex.items.ptr, gl.STATIC_DRAW);
     }
 
-    pub fn render(self: *@This(), shaderProgram: platform.GLuint) void {
+    pub fn render(self: *@This(), shaderProgram: gl.GLuint) void {
         if (self.elements == 0) {
             // No voxels in chunk, don't render
             return;
         }
 
         // Render VBO here
-        platform.glEnable(platform.GL_CULL_FACE);
-        platform.glEnable(platform.GL_DEPTH_TEST);
+        gl.enable(gl.CULL_FACE);
+        gl.enable(gl.DEPTH_TEST);
 
-        platform.glBindBuffer(platform.GL_ARRAY_BUFFER, self.vbo);
+        gl.bindBuffer(gl.ARRAY_BUFFER, self.vbo);
         const stride = 9;
-        var attribute_coord_result = platform.glGetAttribLocation(shaderProgram, "coord");
+        var attribute_coord_result = gl.getAttribLocation(shaderProgram, "coord");
         if (attribute_coord_result >= 0) {
-            var attribute_coord = @intCast(platform.GLuint, attribute_coord_result);
-            platform.glEnableVertexAttribArray(attribute_coord);
-            platform.glVertexAttribPointer(attribute_coord, 3, platform.GL_BYTE, platform.GL_FALSE, stride, null);
+            var attribute_coord = @intCast(gl.GLuint, attribute_coord_result);
+            gl.enableVertexAttribArray(attribute_coord);
+            gl.vertexAttribPointer(attribute_coord, 3, gl.BYTE, gl.FALSE, stride, null);
         } else {
             std.log.debug("no coord attribute err {}", .{attribute_coord_result});
         }
 
-        var attribute_coord_frac_result = platform.glGetAttribLocation(shaderProgram, "frac_coord");
+        var attribute_coord_frac_result = gl.getAttribLocation(shaderProgram, "frac_coord");
         if (attribute_coord_frac_result >= 0) {
-            var attribute_coord_frac = @intCast(platform.GLuint, attribute_coord_frac_result);
-            platform.glEnableVertexAttribArray(attribute_coord_frac);
-            platform.glVertexAttribPointer(attribute_coord_frac, 3, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 3));
+            var attribute_coord_frac = @intCast(gl.GLuint, attribute_coord_frac_result);
+            gl.enableVertexAttribArray(attribute_coord_frac);
+            gl.vertexAttribPointer(attribute_coord_frac, 3, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 3));
         } else {
             std.log.debug("no coord_frac attribute", .{});
         }
 
-        var attribute_tex_result = platform.glGetAttribLocation(shaderProgram, "tex");
+        var attribute_tex_result = gl.getAttribLocation(shaderProgram, "tex");
         if (attribute_tex_result >= 0) {
-            var attribute_tex = @intCast(platform.GLuint, attribute_tex_result);
-            platform.glEnableVertexAttribArray(attribute_tex);
-            platform.glVertexAttribPointer(attribute_tex, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 6));
+            var attribute_tex = @intCast(gl.GLuint, attribute_tex_result);
+            gl.enableVertexAttribArray(attribute_tex);
+            gl.vertexAttribPointer(attribute_tex, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 6));
         } else {
             std.log.debug("no tex attribute", .{});
         }
 
-        var attribute_ao_result = platform.glGetAttribLocation(shaderProgram, "ao");
+        var attribute_ao_result = gl.getAttribLocation(shaderProgram, "ao");
         if (attribute_ao_result >= 0) {
-            var attribute_ao = @intCast(platform.GLuint, attribute_ao_result);
-            platform.glEnableVertexAttribArray(attribute_ao);
-            platform.glVertexAttribPointer(attribute_ao, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 7));
+            var attribute_ao = @intCast(gl.GLuint, attribute_ao_result);
+            gl.enableVertexAttribArray(attribute_ao);
+            gl.vertexAttribPointer(attribute_ao, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 7));
         } else {
             std.log.debug("no ao attribute", .{});
         }
 
-        var attribute_light_result = platform.glGetAttribLocation(shaderProgram, "light");
+        var attribute_light_result = gl.getAttribLocation(shaderProgram, "light");
         if (attribute_light_result >= 0) {
-            var attribute_light = @intCast(platform.GLuint, attribute_light_result);
-            platform.glEnableVertexAttribArray(attribute_light);
-            platform.glVertexAttribPointer(attribute_light, 1, platform.GL_BYTE, platform.GL_FALSE, stride, @intToPtr(*c_void, 8));
+            var attribute_light = @intCast(gl.GLuint, attribute_light_result);
+            gl.enableVertexAttribArray(attribute_light);
+            gl.vertexAttribPointer(attribute_light, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 8));
         } else {
             std.log.debug("no light attribute", .{});
         }
 
-        platform.glDrawArrays(platform.GL_TRIANGLES, 0, @intCast(i32, self.elements));
+        gl.drawArrays(gl.TRIANGLES, 0, @intCast(i32, self.elements));
     }
 };
