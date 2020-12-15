@@ -381,6 +381,7 @@ pub const TEXTURE_MAX_LEVEL = 0x813D;
 pub const MIN = 0x8007;
 pub const MAX = 0x8008;
 pub const DEPTH_COMPONENT24 = 0x81A6;
+pub const DEBUG_OUTPUT = 0x92E0;
 pub const MAX_TEXTURE_LOD_BIAS = 0x84FD;
 pub const TEXTURE_COMPARE_MODE = 0x884C;
 pub const TEXTURE_COMPARE_FUNC = 0x884D;
@@ -783,6 +784,10 @@ pub fn createShader(shaderGltype: GLenum) GLuint {
 
 pub fn cullFace(mode: GLenum) void {
     return (function_pointers.glCullFace orelse @panic("glCullFace was not bound."))(mode);
+}
+
+pub fn debugMessageCallback(callback: GLDEBUGPROC, userParam: ?*const c_void) void {
+    return (function_pointers.glDebugMessageCallback orelse @panic("glDebugMessageCallback was not bound."))(callback, userParam);
 }
 
 pub fn deleteBuffers(n: GLsizei, buffers: [*c]const GLuint) void {
@@ -1827,6 +1832,12 @@ pub fn load(load_ctx: anytype, get_proc_address: fn (@TypeOf(load_ctx), [:0]cons
         function_pointers.glCullFace = @ptrCast(?function_signatures.glCullFace, proc);
     } else {
         log.emerg("entry point glCullFace not found!", .{});
+        success = false;
+    }
+    if (get_proc_address(load_ctx, "glDebugMessageCallback")) |proc| {
+        function_pointers.glDebugMessageCallback = @ptrCast(?function_signatures.glDebugMessageCallback, proc);
+    } else {
+        log.emerg("entry point glDebugMessageCallback not found!", .{});
         success = false;
     }
     if (get_proc_address(load_ctx, "glDeleteBuffers")) |proc| {
@@ -3170,6 +3181,7 @@ const function_signatures = struct {
     const glCreateProgram = fn () GLuint;
     const glCreateShader = fn (gltype: GLenum) GLuint;
     const glCullFace = fn (mode: GLenum) void;
+    const glDebugMessageCallback = fn (callback: GLDEBUGPROC, userParam: ?*const c_void) void;
     const glDeleteBuffers = fn (n: GLsizei, buffers: [*c]const GLuint) void;
     const glDeleteFramebuffers = fn (n: GLsizei, framebuffers: [*c]const GLuint) void;
     const glDeleteProgram = fn (program: GLuint) void;
@@ -3419,6 +3431,7 @@ const function_pointers = struct {
     var glCreateProgram: ?function_signatures.glCreateProgram = null;
     var glCreateShader: ?function_signatures.glCreateShader = null;
     var glCullFace: ?function_signatures.glCullFace = null;
+    var glDebugMessageCallback: ?function_signatures.glDebugMessageCallback = null;
     var glDeleteBuffers: ?function_signatures.glDeleteBuffers = null;
     var glDeleteFramebuffers: ?function_signatures.glDeleteFramebuffers = null;
     var glDeleteProgram: ?function_signatures.glDeleteProgram = null;

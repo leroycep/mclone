@@ -87,6 +87,12 @@ pub fn run(app: App) !void {
     var ctx: u8 = 0; // bogus context variable to satisfy gl.load
     try gl.load(ctx, get_proc_address);
 
+    // Setup opengl debug message callback
+    if (builtin.mode == .Debug) {
+        gl.enable(gl.DEBUG_OUTPUT);
+        gl.debugMessageCallback(MessageCallback, null);
+    }
+
     // Create context for app
     var context = Context{
         .alloc = alloc,
@@ -161,6 +167,7 @@ pub fn now() u64 {
 }
 
 fn MessageCallback(source: gl.GLenum, msgtype: gl.GLenum, id: gl.GLuint, severity: gl.GLenum, len: gl.GLsizei, msg: [*c]const gl.GLchar, userParam: ?*const c_void) callconv(.C) void {
+    // const MessageCallback: gl.GLDEBUGPROC = {
     const msg_slice = msg[0..@intCast(usize, len)];
     const debug_msg_source = @intToEnum(OpenGL_DebugSource, source);
     const debug_msg_type = @intToEnum(OpenGL_DebugType, msgtype);
