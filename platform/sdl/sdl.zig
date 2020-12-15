@@ -9,7 +9,8 @@ const Keycode = @import("../event.zig").Keycode;
 const Scancode = @import("../event.zig").Scancode;
 const MouseButton = @import("../event.zig").MouseButton;
 const builtin = @import("builtin");
-pub usingnamespace @import("./gl.zig");
+// pub usingnamespace @import("./gl.zig");
+pub const gl = @import("./gl_es_3v0.zig");
 const Timer = std.time.Timer;
 pub const net = @import("./net.zig");
 
@@ -42,6 +43,11 @@ pub const Context = struct {
         }
     }
 };
+
+/// _ parameter to get gl.load to not complain
+fn get_proc_address(_: u8, proc: [:0]const u8) ?*c_void {
+    return c.SDL_GL_GetProcAddress(proc);
+}
 
 pub fn run(app: App) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -78,10 +84,13 @@ pub fn run(app: App) !void {
     defer c.SDL_GL_DeleteContext(gl_context);
     c.SDL_ShowWindow(sdl_window);
 
+    var ctx: u8 = 0; // bogus context variable to satisfy gl.load
+    try gl.load(ctx, get_proc_address);
+
     // Setup opengl debug message callback
     if (builtin.mode == .Debug) {
-        c.glEnable(c.GL_DEBUG_OUTPUT);
-        c.glDebugMessageCallback(MessageCallback, null);
+        gl.enable(c.GL_DEBUG_OUTPUT);
+        // gl.debugMessageCallback(MessageCallback, null);
     }
 
     // Create context for app

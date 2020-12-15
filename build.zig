@@ -53,7 +53,6 @@ pub fn build(b: *Builder) void {
     native.addPackage(PLATFORM);
     native.addPackagePath("zigimg", "zigimg/zigimg.zig");
     native.linkSystemLibrary("SDL2");
-    native.linkSystemLibrary("epoxy");
     native.linkLibC();
     native.setTarget(target);
     native.setBuildMode(mode);
