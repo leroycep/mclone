@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const platform = @import("platform");
 const gl = platform.gl;
+const glUtil = platform.glUtil;
 const util = @import("util");
 const math = @import("math");
 const Vec3f = math.Vec(3, f64);
@@ -93,12 +94,12 @@ pub fn main() !void {
 pub fn onInit(context: *platform.Context) !void {
     var vertShader = gl.createShader(gl.VERTEX_SHADER);
     defer gl.deleteShader(vertShader);
-    gl.shaderSourceZ(vertShader, chunk_vert_code);
+    glUtil.shaderSource(vertShader, chunk_vert_code);
     gl.compileShader(vertShader);
 
     var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     defer gl.deleteShader(fragShader);
-    gl.shaderSourceZ(fragShader, chunk_frag_code);
+    glUtil.shaderSource(fragShader, chunk_frag_code);
     gl.compileShader(fragShader);
 
     shaderProgram = gl.createProgram();
@@ -109,12 +110,12 @@ pub fn onInit(context: *platform.Context) !void {
 
     var lineVertShader = gl.createShader(gl.VERTEX_SHADER);
     defer gl.deleteShader(lineVertShader);
-    gl.shaderSourceZ(lineVertShader, line_vert_code);
+    glUtil.shaderSource(lineVertShader, line_vert_code);
     gl.compileShader(lineVertShader);
 
     var lineFragShader = gl.createShader(gl.FRAGMENT_SHADER);
     defer gl.deleteShader(lineFragShader);
-    gl.shaderSourceZ(lineFragShader, line_frag_code);
+    glUtil.shaderSource(lineFragShader, line_frag_code);
     gl.compileShader(lineFragShader);
 
     lineShader = gl.createProgram();

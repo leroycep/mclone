@@ -11,6 +11,7 @@ const MouseButton = @import("../event.zig").MouseButton;
 const builtin = @import("builtin");
 // pub usingnamespace @import("./gl.zig");
 pub const gl = @import("./gl_es_3v0.zig");
+pub const glUtil = @import("./gl_util.zig");
 const Timer = std.time.Timer;
 pub const net = @import("./net.zig");
 
@@ -61,7 +62,7 @@ pub fn run(app: App) !void {
     defer c.SDL_Quit();
 
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MINOR_VERSION, 2));
+    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MINOR_VERSION, 0));
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_ES));
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_DOUBLEBUFFER, 1));
 
@@ -88,10 +89,10 @@ pub fn run(app: App) !void {
     try gl.load(ctx, get_proc_address);
 
     // Setup opengl debug message callback
-    if (builtin.mode == .Debug) {
-        gl.enable(gl.DEBUG_OUTPUT);
-        gl.debugMessageCallback(MessageCallback, null);
-    }
+    // if (builtin.mode == .Debug) {
+    //     gl.enable(gl.DEBUG_OUTPUT);
+    //     gl.debugMessageCallback(MessageCallback, null);
+    // }
 
     // Create context for app
     var context = Context{
