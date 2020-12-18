@@ -61,7 +61,7 @@ pub fn run(app: App) !void {
     defer c.SDL_Quit();
 
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MINOR_VERSION, 2));
+    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MINOR_VERSION, 0));
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_ES));
     sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_DOUBLEBUFFER, 1));
 
