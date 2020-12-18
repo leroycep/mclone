@@ -1,4 +1,4 @@
-#version 310 es
+#version 300 es
 
 in vec3 coord;
 in vec3 frac_coord;
