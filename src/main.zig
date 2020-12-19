@@ -92,22 +92,6 @@ pub fn main() !void {
 }
 
 pub fn onInit(context: *platform.Context) !void {
-    var vertShader = gl.createShader(gl.VERTEX_SHADER);
-    defer gl.deleteShader(vertShader);
-    glUtil.shaderSource(vertShader, chunk_vert_code);
-    gl.compileShader(vertShader);
-
-    var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-    defer gl.deleteShader(fragShader);
-    glUtil.shaderSource(fragShader, chunk_frag_code);
-    gl.compileShader(fragShader);
-
-    shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertShader);
-    gl.attachShader(shaderProgram, fragShader);
-    gl.linkProgram(shaderProgram);
-    gl.useProgram(shaderProgram);
-
     var lineVertShader = gl.createShader(gl.VERTEX_SHADER);
     defer gl.deleteShader(lineVertShader);
     glUtil.shaderSource(lineVertShader, line_vert_code);
@@ -124,15 +108,6 @@ pub fn onInit(context: *platform.Context) !void {
     gl.linkProgram(lineShader);
 
     // Set up VAO
-    worldRenderer = try WorldRenderer.init(context.alloc);
-
-    gl.genBuffers(1, &cursor_vbo);
-
-    projectionMatrixUniform = gl.getUniformLocation(shaderProgram, "mvp");
-    modelTransformUniform = gl.getUniformLocation(shaderProgram, "modelTransform");
-    daytimeUniform = gl.getUniformLocation(shaderProgram, "daytime");
-
-    try context.setRelativeMouseMode(true);
 
     tilesetTex = try loadTileset(context.alloc, &[_][]const u8{
         "assets/dirt.png",
@@ -154,6 +129,11 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/wire-6.png",
         "assets/signal-source.png",
     });
+    worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
+
+    gl.genBuffers(1, &cursor_vbo);
+
+    try context.setRelativeMouseMode(true);
 
     socket = try net.FramesSocket.init(context.alloc, "127.0.0.1:5949", 0);
     socket.setOnMessage(onSocketMessage);
@@ -512,7 +492,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
 
-    const screen_size_int = context.getScreenSize();
+    const screen_size_int = vec2i(16, 16); //context.getScreenSize();
     const screen_size = screen_size_int.intToFloat(f64);
 
     const aspect = screen_size.x / screen_size.y;
@@ -522,115 +502,6 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
-    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &projection.v);
-
     // Clear the screen
-    gl.clearColor(0.5, 0.5, 0.5, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
-    gl.enable(gl.POLYGON_OFFSET_FILL);
-
-    gl.polygonOffset(1, 0.25);
-
-    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tilesetTex);
-    gl.uniform1ui(daytimeUniform, daytime);
-    worldRenderer.render(shaderProgram, modelTransformUniform);
-
-    // Line Drawing Code
-    gl.useProgram(lineShader);
-    gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(1, 0);
-    gl.lineWidth(1);
-    // Draw box around selected box
-    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &projection.v);
-    gl.uniformMatrix4fv(modelTransformUniform, 1, gl.FALSE, &math.Mat4(f32).ident().v);
-    gl.bindBuffer(gl.ARRAY_BUFFER, cursor_vbo);
-    var attribute_coord = @intCast(gl.GLuint, gl.getAttribLocation(shaderProgram, "coord"));
-    gl.vertexAttribPointer(attribute_coord, 4, gl.FLOAT, gl.FALSE, 0, null);
-    gl.enableVertexAttribArray(attribute_coord);
-
-    var other_player_states_iter = other_player_states.iterator();
-    while (other_player_states_iter.next()) |entry| {
-        const pos = entry.value.position.floatCast(f32);
-        const box = [24][4]f32{
-            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-            .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 0, pos.z + 1, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 0, pos.y + 1, pos.z + 1, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 0, 10 },
-            .{ pos.x + 1, pos.y + 1, pos.z + 1, 10 },
-        };
-
-        gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, gl.DYNAMIC_DRAW);
-
-        gl.drawArrays(gl.LINES, 0, 24);
-    }
-
-    gl.disable(gl.POLYGON_OFFSET_FILL);
-    gl.disable(gl.CULL_FACE);
-
-    if (worldRenderer.world.raycast(render_pos, camera_angle, 5)) |raycast| {
-        const selected = raycast.pos.intToFloat(f32);
-        const box = [24][4]f32{
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 0, selected.z + 1, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 0, selected.y + 1, selected.z + 1, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 0, 11 },
-            .{ selected.x + 1, selected.y + 1, selected.z + 1, 11 },
-        };
-
-        gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(box)), &box, gl.DYNAMIC_DRAW);
-
-        gl.drawArrays(gl.LINES, 0, 24);
-    }
-
-    const cross = [4][4]f32{
-        .{ -0.05, 0, -2, 10 },
-        .{ 0.05, 0, -2, 10 },
-        .{ 0, -0.05, -2, 10 },
-        .{ 0, 0.05, -2, 10 },
-    };
-
-    gl.disable(gl.DEPTH_TEST);
-    gl.uniformMatrix4fv(projectionMatrixUniform, 1, gl.FALSE, &perspective.floatCast(f32).v);
-    gl.bufferData(gl.ARRAY_BUFFER, @sizeOf(@TypeOf(cross)), &cross, gl.DYNAMIC_DRAW);
-
-    gl.drawArrays(gl.LINES, 0, cross.len);
+    worldRenderer.render(context, projection);
 }
