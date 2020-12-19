@@ -65,7 +65,7 @@ pub const WorldRenderer = struct {
         try gop.entry.value.update(chunk, chunkPos, &this.world);
     }
 
-    pub fn render(this: @This(), context: *platform.Context, projection: Mat4f) void {
+    pub fn render(this: @This(), context: *platform.Context, projection: Mat4f, daytime: u32) void {
         gl.useProgram(this.program);
         defer gl.useProgram(0);
         const screen_size_int = context.getScreenSize();
@@ -78,7 +78,7 @@ pub const WorldRenderer = struct {
         gl.polygonOffset(1, 0.25);
 
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tilesetTex);
-        gl.uniform1ui(this.daytimeUniform, 2);
+        gl.uniform1ui(this.daytimeUniform, daytime);
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);
         var rendered_iter = this.renderedChunks.iterator();
         while (rendered_iter.next()) |entry| {

@@ -272,7 +272,7 @@ pub const World = struct {
         return false;
     }
 
-    const RaycastResult = struct {
+    pub const RaycastResult = struct {
         pos: Vec3i,
         side: ?Side,
         prev: ?Vec3i,

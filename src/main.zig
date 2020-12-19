@@ -17,6 +17,7 @@ const OBB = collision.OBB;
 const core = @import("core");
 const BlockType = core.block.BlockType;
 const WorldRenderer = @import("./world_render.zig").WorldRenderer;
+const LineRenderer = @import("./line_render.zig").LineRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
@@ -25,22 +26,10 @@ const net = platform.net;
 
 const DEG_TO_RAD = std.math.pi / 180.0;
 
-const chunk_vert_code = @embedFile("chunk_render.vert");
-const chunk_frag_code = @embedFile("chunk_render.frag");
-
-const line_vert_code = @embedFile("line.vert");
-const line_frag_code = @embedFile("line.frag");
-
-var shaderProgram: gl.GLuint = undefined;
-var lineShader: gl.GLuint = undefined;
-var projectionMatrixUniform: gl.GLint = undefined;
-var modelTransformUniform: gl.GLint = undefined;
-var daytimeUniform: gl.GLint = undefined;
 var daytime: u32 = 0;
 
 var worldRenderer: WorldRenderer = undefined;
-var cursor_vbo: gl.GLuint = undefined;
-
+var lineRenderer: LineRenderer = undefined;
 var tilesetTex: gl.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
@@ -92,23 +81,8 @@ pub fn main() !void {
 }
 
 pub fn onInit(context: *platform.Context) !void {
-    var lineVertShader = gl.createShader(gl.VERTEX_SHADER);
-    defer gl.deleteShader(lineVertShader);
-    glUtil.shaderSource(lineVertShader, line_vert_code);
-    gl.compileShader(lineVertShader);
-
-    var lineFragShader = gl.createShader(gl.FRAGMENT_SHADER);
-    defer gl.deleteShader(lineFragShader);
-    glUtil.shaderSource(lineFragShader, line_frag_code);
-    gl.compileShader(lineFragShader);
-
-    lineShader = gl.createProgram();
-    gl.attachShader(lineShader, lineVertShader);
-    gl.attachShader(lineShader, lineFragShader);
-    gl.linkProgram(lineShader);
 
     // Set up VAO
-
     tilesetTex = try loadTileset(context.alloc, &[_][]const u8{
         "assets/dirt.png",
         "assets/stone.png",
@@ -130,8 +104,7 @@ pub fn onInit(context: *platform.Context) !void {
         "assets/signal-source.png",
     });
     worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
-
-    gl.genBuffers(1, &cursor_vbo);
+    lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
 
     try context.setRelativeMouseMode(true);
 
@@ -148,8 +121,7 @@ pub fn onInit(context: *platform.Context) !void {
 
 fn onDeinit(context: *platform.Context) void {
     worldRenderer.deinit();
-    gl.deleteProgram(shaderProgram);
-    gl.deleteProgram(lineShader);
+    lineRenderer.deinit();
     moves.deinit();
     other_player_states.deinit();
     socket.deinit();
@@ -483,8 +455,6 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 }
 
 pub fn render(context: *platform.Context, alpha: f64) !void {
-    gl.useProgram(shaderProgram);
-
     const render_pos = player_state.position.scale(alpha).addv(previous_player_state.position.scale(1 - alpha));
 
     const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
@@ -492,7 +462,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);
 
-    const screen_size_int = vec2i(16, 16); //context.getScreenSize();
+    const screen_size_int = context.getScreenSize();
     const screen_size = screen_size_int.intToFloat(f64);
 
     const aspect = screen_size.x / screen_size.y;
@@ -503,5 +473,6 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
     // Clear the screen
-    worldRenderer.render(context, projection);
+    worldRenderer.render(context, projection, daytime);
+    lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
 }
