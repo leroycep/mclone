@@ -208,7 +208,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             ._0 => item = .Stone,
             ._1 => item = .Dirt,
             ._2 => item = .Grass,
-            ._3 => item = .Wood,
+            ._3 => item = .SignalInverter,
             ._4 => item = .Leaf,
             ._5 => item = .CoalOre,
             ._6 => item = .IronOre,
@@ -247,9 +247,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                     }
 
                     const block = worldRenderer.world.getv(raycast.pos);
-                    const desc = core.block.describe(block);
-                    //const signal = desc.signalLevel(block.blockData);
-                    //std.log.debug("Signal: {}", .{ signal });
+                    std.log.debug("Block: {}, Data: {b}", .{ block.blockType, block.blockData });
                 }
             },
             .Right => {

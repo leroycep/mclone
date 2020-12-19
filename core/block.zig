@@ -17,6 +17,7 @@ pub const BlockType = enum(u8) {
     Torch,
     Wire,
     SignalSource,
+    SignalInverter,
 };
 
 pub const Block = struct {
@@ -181,7 +182,11 @@ const DESCRIPTIONS = comptime describe_blocks: {
     descriptions[@enumToInt(BlockType.SignalSource)] = .{
         .texForSideFn = singleTexBlock(18),
         .lightEmittedFn = returnStaticInt(u4, 4),
-        //.signal_level = .{ .Emit = 15 },
+    };
+    descriptions[@enumToInt(BlockType.SignalInverter)] = .{
+        .texForSideFn = makeOrientedSignalInverterTex(6, 5, 11, 10),
+        .lightEmittedFn = returnStaticInt(u4, 4),
+        .updateFn = signalInverterUpdate,
     };
 
     break :describe_blocks descriptions;
@@ -284,6 +289,20 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
                 const wire_signal = @intCast(u4, offset_block.blockData & 0xF);
                 max_signal_value = std.math.max(max_signal_value, wire_signal);
             },
+            .SignalInverter => {
+                const sin = Orientation.sin;
+                const cos = Orientation.cos;
+
+                const other_inverter_output = (offset_block.blockData >> 6) & 1 == 1;
+                if (!other_inverter_output) continue;
+
+                const o2 = Orientation.fromU6(@intCast(u6, offset_block.blockData & 0b111111));
+                const inverter_output_offset = vec3i(-cos(o2.y), -sin(o2.y) * sin(o2.x), sin(o2.y) * cos(o2.x));
+
+                if (offset.addv(inverter_output_offset).eql(vec3i(0, 0, 0))) {
+                    max_signal_value = 15;
+                }
+            },
             else => {},
         }
     }
@@ -299,11 +318,86 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
             const offset_pos = pos.addv(offset);
             const offset_block = world.getv(offset_pos);
             switch (offset_block.blockType) {
-                .Wire, .Torch => world.updated_blocks.push_back(offset_pos) catch unreachable,
+                .Wire, .Torch, .SignalInverter => world.updated_blocks.push_back(offset_pos) catch unreachable,
                 else => {},
             }
         }
     }
+}
+
+fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    const sin = Orientation.sin;
+    const cos = Orientation.cos;
+
+    var block = world.getv(pos);
+    const data = world.getv(pos).blockData;
+    const current_signal = (data >> 6) & 1 == 1;
+    const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
+
+    // Default is the east side
+    const input_offset = vec3i(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
+    const input_block = world.getv(pos.addv(input_offset));
+    // Default is the west side
+    const output_offset = vec3i(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
+    const output_block = world.getv(pos.addv(output_offset));
+
+    const input_signal = switch (input_block.blockType) {
+        .SignalSource => true,
+        .SignalInverter => get_other_inverter_out: {
+            const other_inverter_output = (input_block.blockData >> 6) & 1 == 1;
+            if (!other_inverter_output) break :get_other_inverter_out false;
+
+            const o2 = Orientation.fromU6(@intCast(u6, input_block.blockData & 0b111111));
+            const other_output_offset = vec3i(-cos(o2.y), -sin(o2.y) * sin(o2.x), sin(o2.y) * cos(o2.x));
+
+            if (input_offset.addv(other_output_offset).eql(vec3i(0, 0, 0))) {
+                break :get_other_inverter_out true;
+            } else {
+                break :get_other_inverter_out false;
+            }
+        },
+        .Wire => @intCast(u4, input_block.blockData & 0xF) > 0,
+        else => false,
+    };
+
+    if (current_signal == !input_signal) return;
+
+    const output_signal: u16 = if (input_signal) 0 else (1 << 6);
+    var new_block = block;
+    new_block.blockData = output_signal | (o.toU6());
+    world.setv(pos, new_block);
+
+    world.updated_blocks.push_back(pos.addv(output_offset)) catch unreachable;
+}
+
+fn makeOrientedSignalInverterTex(comptime sideId: u8, comptime inputId: u8, comptime outputOffId: u8, comptime outputOnId: u8) TexForSideFn {
+    const S = struct {
+        const sin = Orientation.sin;
+        const cos = Orientation.cos;
+
+        fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            const data = world.getv(pos).blockData;
+            const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
+            const orientedSide = switch (side) {
+                .Top => Side.fromNormal(0, cos(o.x), sin(o.x)),
+                .Bottom => Side.fromNormal(0, -cos(o.x), sin(o.x)),
+                .North => Side.fromNormal(-sin(o.y), cos(o.y) * -sin(o.x), cos(o.y) * cos(o.x)),
+                .East => Side.fromNormal(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+                .South => Side.fromNormal(sin(o.y), cos(o.y) * sin(o.x), cos(o.y) * cos(o.x)),
+                .West => Side.fromNormal(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x)),
+            };
+            return switch (orientedSide) {
+                .Top => sideId,
+                .Bottom => sideId,
+                .North => sideId,
+                .South => sideId,
+                .East => inputId,
+                .West => if (data & 0b1000000 == 0) outputOffId else outputOnId,
+            };
+        }
+    };
+
+    return S.getTex;
 }
 
 pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void {
