@@ -113,8 +113,8 @@ pub fn onInit(context: *platform.Context) !void {
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
     flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
 
-    texture1 = try glUtil.loadTexture(context.alloc, "assets/grass.png");
-    texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
+    // texture1 = try glUtil.loadTexture(context.alloc, "assets/grass.png");
+    // texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
 
     try context.setRelativeMouseMode(true);
 
@@ -483,9 +483,6 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
-    const fbo1 = texture1;
-    const fbo2 = texture2;
-
     gl.clearColor(0.5, 0.5, 0.5, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
@@ -499,5 +496,5 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
-    flatRenderer.render(context, fbo1, fbo2);
+    // flatRenderer.render(context, texture1, texture2);
 }
