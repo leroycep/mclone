@@ -13,7 +13,7 @@ const MATH = std.build.Pkg{
 const PLATFORM = std.build.Pkg{
     .name = "platform",
     .path = "./platform/platform.zig",
-    .dependencies = &[_]Pkg{MATH},
+    .dependencies = &[_]Pkg{ MATH, ZIGIMG },
 };
 const UTIL = std.build.Pkg{
     .name = "util",
@@ -28,6 +28,10 @@ const CORE = std.build.Pkg{
     .name = "core",
     .path = "./core/core.zig",
     .dependencies = &[_]Pkg{ UTIL, MATH, BARE },
+};
+const ZIGIMG = std.build.Pkg{
+    .name = "zigimg",
+    .path = "zigimg/zigimg.zig",
 };
 
 pub fn build(b: *Builder) void {
@@ -51,7 +55,7 @@ pub fn build(b: *Builder) void {
     native.addPackage(CORE);
     native.addPackage(MATH);
     native.addPackage(PLATFORM);
-    native.addPackagePath("zigimg", "zigimg/zigimg.zig");
+    native.addPackage(ZIGIMG);
     native.linkSystemLibrary("SDL2");
     native.linkLibC();
     native.setTarget(target);

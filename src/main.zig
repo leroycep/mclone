@@ -9,6 +9,8 @@ const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const Vec2f = math.Vec(2, f64);
 const vec2f = Vec2f.init;
+const Vec2f32 = math.Vec(2, f32);
+const vec2f32 = Vec2f32.init;
 const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Mat4f = math.Mat4(f64);
@@ -18,6 +20,7 @@ const core = @import("core");
 const BlockType = core.block.BlockType;
 const WorldRenderer = @import("./world_render.zig").WorldRenderer;
 const LineRenderer = @import("./line_render.zig").LineRenderer;
+const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
@@ -30,6 +33,7 @@ var daytime: u32 = 0;
 
 var worldRenderer: WorldRenderer = undefined;
 var lineRenderer: LineRenderer = undefined;
+var flatRenderer: FlatRenderer = undefined;
 var tilesetTex: gl.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
@@ -53,6 +57,8 @@ var input = Input{};
 var item: BlockType = .Stone;
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
+var texture1: gl.GLuint = undefined;
+var texture2: gl.GLuint = undefined;
 
 var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
@@ -105,6 +111,10 @@ pub fn onInit(context: *platform.Context) !void {
     });
     worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
+    flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
+
+    texture1 = try glUtil.loadTexture(context.alloc, "assets/grass.png");
+    texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
 
     try context.setRelativeMouseMode(true);
 
@@ -122,6 +132,7 @@ pub fn onInit(context: *platform.Context) !void {
 fn onDeinit(context: *platform.Context) void {
     worldRenderer.deinit();
     lineRenderer.deinit();
+    flatRenderer.deinit();
     moves.deinit();
     other_player_states.deinit();
     socket.deinit();
@@ -463,7 +474,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const up = right.cross(lookat);
 
     const screen_size_int = context.getScreenSize();
-    const screen_size = screen_size_int.intToFloat(f64);
+    const screen_size = screen_size_int.intToFloat(f32);
 
     const aspect = screen_size.x / screen_size.y;
     const zNear = 0.25;
@@ -472,7 +483,21 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
+    const fbo1 = texture1;
+    const fbo2 = texture2;
+
+    gl.clearColor(0.5, 0.5, 0.5, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+
+    gl.polygonOffset(1, 0.25);
+    // gl.enable(gl.BLEND);
+    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    try flatRenderer.setSize(screen_size);
+
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
+    flatRenderer.render(context, fbo1, fbo2);
 }

@@ -70,13 +70,6 @@ pub const WorldRenderer = struct {
         defer gl.useProgram(0);
         const screen_size_int = context.getScreenSize();
         const screen_size = screen_size_int.intToFloat(f64);
-        gl.clearColor(0.5, 0.5, 0.5, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
-        gl.enable(gl.POLYGON_OFFSET_FILL);
-
-        gl.polygonOffset(1, 0.25);
-
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tilesetTex);
         gl.uniform1ui(this.daytimeUniform, daytime);
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);
