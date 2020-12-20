@@ -107,6 +107,7 @@ pub const BlockDescription = struct {
     texForSideFn: fn (this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8,
     lightEmittedFn: fn (this: *const @This(), world: *const World, pos: Vec3i) u4 = returnStaticInt(u4, 0),
     updateFn: fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
+    tickFn: fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
 
     pub fn isOpaque(this: *const @This(), world: *const World, pos: Vec3i) bool {
         return this.isOpaqueFn(this, world, pos);
@@ -130,6 +131,10 @@ pub const BlockDescription = struct {
 
     pub fn update(this: *const @This(), world: *World, pos: Vec3i) void {
         return this.updateFn(this, world, pos);
+    }
+
+    pub fn tick(this: *const @This(), world: *World, pos: Vec3i) void {
+        return this.tickFn(this, world, pos);
     }
 };
 
@@ -187,6 +192,7 @@ const DESCRIPTIONS = comptime describe_blocks: {
         .texForSideFn = makeOrientedSignalInverterTex(6, 5, 11, 10),
         .lightEmittedFn = returnStaticInt(u4, 4),
         .updateFn = signalInverterUpdate,
+        .tickFn = signalInverterTick,
     };
 
     break :describe_blocks descriptions;
@@ -362,11 +368,36 @@ fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i
 
     if (current_signal == !input_signal) return;
 
-    const output_signal: u16 = if (input_signal) 0 else (1 << 6);
+    const output_signal: u16 = if (input_signal) 0 else 0b10000000;
     var new_block = block;
-    new_block.blockData = output_signal | (o.toU6());
+    new_block.blockData = output_signal | (data & 0b01000000) | (o.toU6());
+    world.setv(pos, new_block);
+    world.blocks_to_tick.push_back(pos) catch unreachable;
+}
+
+fn signalInverterTick(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    std.log.debug("{} {} {}", .{ @src().file, @src().fn_name, @src().line });
+    const sin = Orientation.sin;
+    const cos = Orientation.cos;
+
+    var block = world.getv(pos);
+    const data = world.getv(pos).blockData;
+    const current_signal = (data >> 6) & 1 == 1;
+    const new_signal = (data >> 7) & 1 == 1;
+    const has_been_updated = (data >> 8) & 1 == 1;
+    const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
+
+    std.log.debug("{} {} {}", .{ current_signal, new_signal, has_been_updated });
+
+    if (has_been_updated) return;
+
+    const output_signal: u16 = if (new_signal) 0b001000000 else 0;
+    var new_block = block;
+    new_block.blockData = 0b100000000 | output_signal | (o.toU6());
+    std.log.debug("new_block: {}", .{new_block.blockData});
     world.setv(pos, new_block);
 
+    const output_offset = vec3i(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
     world.updated_blocks.push_back(pos.addv(output_offset)) catch unreachable;
 }
 
@@ -440,7 +471,7 @@ pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void 
                     }
                 }
             },
-            .Torch,.SignalInverter => try world.updated_blocks.push_back(pos),
+            .Torch, .SignalInverter => try world.updated_blocks.push_back(pos),
             else => {},
         }
     }

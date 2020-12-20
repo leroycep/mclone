@@ -76,6 +76,10 @@ pub fn main() !void {
     const max_players = 24;
     var num_players: usize = 0;
 
+    var timer = try std.time.Timer.start();
+    var tickTime: f64 = 0.0;
+    var accumulator: f64 = 0.0;
+
     var running = true;
     var next_id: u64 = 0;
 
@@ -212,6 +216,24 @@ pub fn main() !void {
                     else => |other_err| return other_err,
                 }
             }
+        }
+
+        const MAX_DELTA = 0.25;
+        const TICK_DELTA = 50.0 / 1000.0;
+
+        // Update the world if enough time has passed
+        var delta = @intToFloat(f64, timer.lap()) / std.time.ns_per_s; // Delta in seconds
+        if (delta > MAX_DELTA) {
+            std.log.warn("delta was too great, reducing from {} to max {}", .{delta, MAX_DELTA});
+            delta = MAX_DELTA; // Try to avoid spiral of death when lag hits
+        }
+
+        accumulator += delta;
+
+        while (accumulator >= TICK_DELTA) {
+            try world.tick(tickTime, TICK_DELTA);
+            accumulator -= TICK_DELTA;
+            tickTime += TICK_DELTA;
         }
     }
 }
