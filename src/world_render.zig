@@ -115,6 +115,13 @@ pub const WorldRenderer = struct {
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tilesetTex);
         gl.uniform1ui(this.daytimeUniform, daytime);
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);
+
+        var rendered_iter = this.renderedChunks.iterator();
+        while (rendered_iter.next()) |entry| {
+            const mat = math.Mat4(f32).translation(entry.key.intToFloat(f32).scale(16));
+            gl.uniformMatrix4fv(this.modelTransformUniform, 1, gl.FALSE, &mat.v);
+            entry.value.render(this.program);
+        }
     }
 
     pub fn remeshChunk(this: *@This(), chunkPos: Vec3i) !void {

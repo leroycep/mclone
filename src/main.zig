@@ -508,7 +508,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     gl.polygonOffset(1, 0.25);
     // gl.enable(gl.BLEND);
     // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    try flatRenderer.setSize(screen_size);
+    // try flatRenderer.setSize(screen_size);
 
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
