@@ -440,7 +440,7 @@ pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void 
                     }
                 }
             },
-            .Torch => try world.updated_blocks.push_back(pos),
+            .Torch,.SignalInverter => try world.updated_blocks.push_back(pos),
             else => {},
         }
     }
