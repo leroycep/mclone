@@ -11,11 +11,23 @@ const ChunkRender = @import("./chunk_render.zig").ChunkRender;
 const platform = @import("platform");
 const gl = platform.gl;
 const glUtil = platform.glUtil;
+const ArrayDeque = @import("util").ArrayDeque;
+
+const UpdateTag = enum {
+    LoadChunk,
+    Remesh,
+};
+
+const Update = union(UpdateTag) {
+    LoadChunk: Chunk,
+    Remesh: void,
+};
 
 pub const WorldRenderer = struct {
     allocator: *Allocator,
     world: World,
     renderedChunks: std.AutoHashMap(Vec3i, ChunkRender),
+    updateQueue: std.AutoArrayHashMap(Vec3i, Update),
 
     program: gl.GLuint,
     projectionMatrixUniform: gl.GLint = undefined,
@@ -33,6 +45,7 @@ pub const WorldRenderer = struct {
                 @embedFile("chunk_render.vert"),
                 @embedFile("chunk_render.frag"),
             ),
+            .updateQueue = std.AutoArrayHashMap(Vec3i, Update).init(allocator),
         };
 
         gl.useProgram(this.program);
@@ -54,6 +67,35 @@ pub const WorldRenderer = struct {
         }
         this.world.deinit();
         this.renderedChunks.deinit();
+        this.updateQueue.deinit();
+    }
+
+    pub fn queueLoadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
+        try this.updateQueue.put(chunkPos, Update{
+            .LoadChunk = chunk,
+        });
+    }
+
+    pub fn queueRemeshChunk(this: *@This(), chunkPos: Vec3i) !void {
+        const gop = try this.updateQueue.getOrPut(chunkPos);
+        if (!gop.found_existing) {
+            gop.entry.value = .Remesh;
+        }
+    }
+
+    pub fn update(this: *@This()) !void {
+        for (this.updateQueue.items()) |entry| {
+            switch (entry.value) {
+                .LoadChunk => |chunk| {
+                    try this.loadChunkFromMemory(entry.key, chunk);
+                },
+                .Remesh => |pos| {
+                    try this.remeshChunk(entry.key);
+                },
+            }
+            _ = this.updateQueue.remove(entry.key);
+            break;
+        }
     }
 
     pub fn loadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
@@ -73,11 +115,13 @@ pub const WorldRenderer = struct {
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tilesetTex);
         gl.uniform1ui(this.daytimeUniform, daytime);
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);
-        var rendered_iter = this.renderedChunks.iterator();
-        while (rendered_iter.next()) |entry| {
-            const mat = math.Mat4(f32).translation(entry.key.intToFloat(f32).scale(16));
-            gl.uniformMatrix4fv(this.modelTransformUniform, 1, gl.FALSE, &mat.v);
-            entry.value.render(this.program);
+    }
+
+    pub fn remeshChunk(this: *@This(), chunkPos: Vec3i) !void {
+        if (this.renderedChunks.get(chunkPos)) |*chunkRender| {
+            if (this.world.chunks.get(chunkPos)) |*chunk| {
+                try chunkRender.update(chunk.*, chunkPos, &this.world);
+            }
         }
     }
 };

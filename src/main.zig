@@ -7,6 +7,8 @@ const util = @import("util");
 const math = @import("math");
 const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
+const Vec3i = math.Vec(3, i64);
+const vec3i = Vec3i.init;
 const Vec2f = math.Vec(2, f64);
 const vec2f = Vec2f.init;
 const Vec2f32 = math.Vec(2, f32);
@@ -362,7 +364,20 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             gop.entry.value = update_data.state;
         },
         .ChunkUpdate => |chunk_update| {
+            const ADJACENT_OFFSETS = [_]Vec3i{
+                vec3i(-1, 0, 0),
+                vec3i(1, 0, 0),
+                vec3i(0, -1, 0),
+                vec3i(0, 1, 0),
+                vec3i(0, 0, -1),
+                vec3i(0, 0, 1),
+            };
+
+            // worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
+            for (ADJACENT_OFFSETS) |offset| {
+                worldRenderer.queueRemeshChunk(chunk_update.pos.addv(offset)) catch unreachable;
+            }
             for (chunks_requested.items) |requested_pos, idx| {
                 if (requested_pos.eql(chunk_update.pos)) {
                     _ = chunks_requested.swapRemove(idx);
@@ -382,6 +397,8 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
 }
 
 pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
+    worldRenderer.update() catch unreachable;
+
     const dir = vec2f(input.right - input.left, input.forward - input.backward);
     const maxVel = dir.magnitude();
     const player_input = core.player.Input{
