@@ -29,6 +29,7 @@ pub const World = struct {
     chunks: std.AutoHashMap(Vec3i, Chunk),
     updated: std.AutoArrayHashMap(Vec3i, void),
     updated_blocks: ArrayDeque(Vec3i),
+    blocks_to_tick: ArrayDeque(Vec3i),
 
     const BlockUpdate = struct {
         // The block that was updated
@@ -43,6 +44,7 @@ pub const World = struct {
             .chunks = std.AutoHashMap(Vec3i, Chunk).init(allocator),
             .updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
             .updated_blocks = ArrayDeque(Vec3i).init(allocator),
+            .blocks_to_tick = ArrayDeque(Vec3i).init(allocator),
         };
     }
 
@@ -116,6 +118,76 @@ pub const World = struct {
 
     pub fn loadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
         try this.chunks.put(chunkPos, chunk);
+    }
+
+    pub fn tick(this: *@This(), time: f64, delta: f64) !void {
+        var lightRemovalBfsQueue = ArrayDeque(RemoveLightNode).init(this.allocator);
+        defer lightRemovalBfsQueue.deinit();
+        var lightBfsQueue = ArrayDeque(Vec3i).init(this.allocator);
+        defer lightBfsQueue.deinit();
+
+        if (this.blocks_to_tick.len() > 0) {
+            std.log.debug("ticking {} blocks", .{this.blocks_to_tick.len()});
+        }
+        while (this.blocks_to_tick.pop_front()) |updated_pos| {
+            const updated_block = this.getv(updated_pos);
+            const updated_desc = core.block.describe(updated_block);
+
+            std.log.debug("{} {} {} {} {}", .{@src().file, @src().fn_name, @src().line, updated_pos, updated_block});
+            //std.log.debug("{} {} {}", .{@src().file, @src().fn_name, @src().line});
+            updated_desc.tick(this, updated_pos);
+
+            // Update light
+            if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
+                //try this.removeLightv(updated_pos);
+                const light_level = this.getTorchlightv(updated_pos);
+                this.setTorchlightv(updated_pos, 0);
+                for (ADJACENT_OFFSETS) |offset| {
+                    try lightRemovalBfsQueue.push_back(.{
+                        .pos = updated_pos.addv(offset),
+                        .expected_level = light_level,
+                    });
+                }
+            }
+            if (updated_desc.lightEmitted(this, updated_pos) > 0) {
+                //try this.addLightv(updated_pos);
+                const light_level = updated_desc.lightEmitted(this, updated_pos);
+                this.setTorchlightv(updated_pos, light_level);
+                try lightBfsQueue.push_back(updated_pos);
+            }
+            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+        }
+
+        while (this.updated_blocks.pop_front()) |updated_pos| {
+            const updated_block = this.getv(updated_pos);
+            const updated_desc = core.block.describe(updated_block);
+
+            updated_desc.update(this, updated_pos);
+
+            // Update light
+            if (updated_desc.isOpaque(this, updated_pos) or updated_block.blockType == .Air) {
+                //try this.removeLightv(updated_pos);
+                const light_level = this.getTorchlightv(updated_pos);
+                this.setTorchlightv(updated_pos, 0);
+                for (ADJACENT_OFFSETS) |offset| {
+                    try lightRemovalBfsQueue.push_back(.{
+                        .pos = updated_pos.addv(offset),
+                        .expected_level = light_level,
+                    });
+                }
+            }
+            if (updated_desc.lightEmitted(this, updated_pos) > 0) {
+                //try this.addLightv(updated_pos);
+                const light_level = updated_desc.lightEmitted(this, updated_pos);
+                this.setTorchlightv(updated_pos, light_level);
+                try lightBfsQueue.push_back(updated_pos);
+            }
+            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+        }
+
+
+        // Remove lights
+        try this.removeLightv(&lightRemovalBfsQueue, &lightBfsQueue);
     }
 
     pub fn getv(this: @This(), blockPos: Vec3i) Block {
