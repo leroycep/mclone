@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const core = @import("core");
 const World = core.World;
 const Chunk = core.chunk.Chunk;
+const Block = core.block.Block;
 const math = @import("math");
 const Vec3i = math.Vec(3, i64);
 const vec3i = Vec3i.init;
@@ -16,6 +17,7 @@ pub const WorldRenderer = struct {
     allocator: *Allocator,
     world: World,
     renderedChunks: std.AutoHashMap(Vec3i, ChunkRender),
+    chunks_that_were_updated: std.AutoArrayHashMap(Vec3i, void),
 
     program: gl.GLuint,
     projectionMatrixUniform: gl.GLint = undefined,
@@ -28,6 +30,7 @@ pub const WorldRenderer = struct {
             .allocator = allocator,
             .world = try World.init(allocator),
             .renderedChunks = std.AutoHashMap(Vec3i, ChunkRender).init(allocator),
+            .chunks_that_were_updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
             .program = try glUtil.compileShader(
                 allocator,
                 @embedFile("chunk_render.vert"),
@@ -54,6 +57,7 @@ pub const WorldRenderer = struct {
         }
         this.world.deinit();
         this.renderedChunks.deinit();
+        this.chunks_that_were_updated.deinit();
     }
 
     pub fn loadChunkFromMemory(this: *@This(), chunkPos: Vec3i, chunk: Chunk) !void {
@@ -65,7 +69,23 @@ pub const WorldRenderer = struct {
         try gop.entry.value.update(chunk, chunkPos, &this.world);
     }
 
-    pub fn render(this: @This(), context: *platform.Context, projection: Mat4f, daytime: u32) void {
+    pub fn loadBlock(this: *@This(), globalPos: Vec3i, block: Block) !void {
+        this.world.setv(globalPos, block);
+        try this.chunks_that_were_updated.put(globalPos.scaleDivFloor(16), {});
+    }
+
+    pub fn render(this: *@This(), context: *platform.Context, projection: Mat4f, daytime: u32) void {
+        var updated_chunks_iter = this.chunks_that_were_updated.iterator();
+        while (updated_chunks_iter.next()) |updated_chunk_entry| {
+            if (this.world.chunks.get(updated_chunk_entry.key)) |chunk| {
+                if (this.renderedChunks.getEntry(updated_chunk_entry.key)) |rendered_chunk_entry| {
+                    rendered_chunk_entry.value.update(chunk, updated_chunk_entry.key, &this.world) catch break;
+                    _ = this.chunks_that_were_updated.remove(updated_chunk_entry.key);
+                    break;
+                }
+            }
+        }
+
         gl.useProgram(this.program);
         defer gl.useProgram(0);
         const screen_size_int = context.getScreenSize();

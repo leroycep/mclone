@@ -35,7 +35,13 @@ pub const ServerDatagram = union(enum) {
         pos: math.Vec(3, i64),
         chunk: core.chunk.Chunk,
     },
+    BlockUpdate: []BlockUpdate,
     EmptyChunk: math.Vec(3, i64),
+};
+
+pub const BlockUpdate = struct {
+    pos: math.Vec(3, i64),
+    block: core.block.Block,
 };
 
 pub const Frames = union(enum) {
