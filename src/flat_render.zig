@@ -43,6 +43,7 @@ pub const FlatRenderer = struct {
             return error.OpenGlFailure;
 
         gl.bindVertexArray(vao);
+        defer gl.bindVertexArray(0);
 
         gl.enableVertexAttribArray(0); // Position attribute
         gl.enableVertexAttribArray(1); // UV attribute
@@ -72,6 +73,8 @@ pub const FlatRenderer = struct {
     }
 
     pub fn setSize(this: *@This(), screenSize: Vec2f) !void {
+        gl.bindVertexArray(this.vertex_array_object);
+        defer gl.bindVertexArray(0);
         var vertices = ArrayList(Vertex).init(this.allocator);
         defer vertices.deinit();
         const width = screenSize.x;
@@ -131,15 +134,26 @@ pub const FlatRenderer = struct {
         gl.useProgram(this.program);
         defer gl.useProgram(0);
 
+        gl.disable(gl.DEPTH_TEST);
+        defer gl.enable(gl.DEPTH_TEST);
+        gl.disable(gl.CULL_FACE);
+        defer gl.enable(gl.CULL_FACE);
+        gl.enable(gl.BLEND);
+        defer gl.disable(gl.BLEND);
+        gl.depthFunc(gl.ALWAYS);
+        defer gl.depthFunc(gl.LESS);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, fbo1);
 
-        // gl.activeTexture(gl.TEXTURE1);
-        // gl.bindTexture(gl.TEXTURE_2D, fbo2);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, fbo2);
 
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &this.perspective.v);
 
         gl.bindVertexArray(this.vertex_array_object);
+        defer gl.bindVertexArray(0);
         gl.drawArrays(gl.TRIANGLES, 0, this.elements);
     }
 };

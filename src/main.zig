@@ -113,7 +113,7 @@ pub fn onInit(context: *platform.Context) !void {
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
     flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
 
-    texture1 = try glUtil.loadTexture(context.alloc, "assets/grass.png");
+    texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
     texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
 
     try context.setRelativeMouseMode(true);
@@ -492,8 +492,6 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     gl.enable(gl.POLYGON_OFFSET_FILL);
 
     gl.polygonOffset(1, 0.25);
-    // gl.enable(gl.BLEND);
-    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     try flatRenderer.setSize(screen_size);
 
     // Clear the screen

@@ -298,6 +298,7 @@ pub const ChunkRender = struct {
         // Render VBO here
         gl.enable(gl.CULL_FACE);
         gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, self.vbo);
         const stride = 9;
