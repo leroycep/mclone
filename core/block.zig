@@ -324,7 +324,7 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
             const offset_pos = pos.addv(offset);
             const offset_block = world.getv(offset_pos);
             switch (offset_block.blockType) {
-                .Wire, .Torch, .SignalInverter => world.updated_blocks.push_back(offset_pos) catch unreachable,
+                .Wire, .Torch, .SignalInverter => world.blocks_to_update.push_back(offset_pos) catch unreachable,
                 else => {},
             }
         }
@@ -376,7 +376,6 @@ fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i
 }
 
 fn signalInverterTick(this: *const BlockDescription, world: *World, pos: Vec3i) void {
-    std.log.debug("{} {} {}", .{ @src().file, @src().fn_name, @src().line });
     const sin = Orientation.sin;
     const cos = Orientation.cos;
 
@@ -387,18 +386,15 @@ fn signalInverterTick(this: *const BlockDescription, world: *World, pos: Vec3i) 
     const has_been_updated = (data >> 8) & 1 == 1;
     const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
 
-    std.log.debug("{} {} {}", .{ current_signal, new_signal, has_been_updated });
-
     if (has_been_updated) return;
 
     const output_signal: u16 = if (new_signal) 0b001000000 else 0;
     var new_block = block;
     new_block.blockData = 0b100000000 | output_signal | (o.toU6());
-    std.log.debug("new_block: {}", .{new_block.blockData});
     world.setv(pos, new_block);
 
     const output_offset = vec3i(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
-    world.updated_blocks.push_back(pos.addv(output_offset)) catch unreachable;
+    world.blocks_to_update.push_back(pos.addv(output_offset)) catch unreachable;
 }
 
 fn makeOrientedSignalInverterTex(comptime sideId: u8, comptime inputId: u8, comptime outputOffId: u8, comptime outputOnId: u8) TexForSideFn {
@@ -460,7 +456,7 @@ pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void 
 
                 block.blockData = 0;
                 world.setv(pos, block);
-                try world.updated_blocks.push_back(pos);
+                try world.blocks_to_update.push_back(pos);
 
                 if (signal_level != 0 and signal_level < expected_signal_level) {
                     for (ADJACENT_OFFSETS) |offset| {
@@ -471,7 +467,7 @@ pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void 
                     }
                 }
             },
-            .Torch, .SignalInverter => try world.updated_blocks.push_back(pos),
+            .Torch, .SignalInverter => try world.blocks_to_update.push_back(pos),
             else => {},
         }
     }

@@ -71,7 +71,7 @@ pub fn main() !void {
             }
         }
     }
-    world.updated.clearRetainingCapacity();
+    world.blocks_that_were_updated.clearRetainingCapacity();
 
     const max_players = 24;
     var num_players: usize = 0;
@@ -194,16 +194,24 @@ pub fn main() !void {
                                     try world.setAndUpdatev(placing.pos, placing.block);
                                 }
 
-                                for (world.updated.items()) |updated_chunk_entry| {
-                                    const chunk_pos = updated_chunk_entry.key;
-                                    try world.fillSunlight(chunk_pos);
-                                    if (world.chunks.get(chunk_pos)) |chunk| {
-                                        broadcastPacket(alloc, &clients, ServerDatagram{
-                                            .ChunkUpdate = .{ .pos = chunk_pos, .chunk = chunk },
+                                const num_updated = world.blocks_that_were_updated.items().len;
+                                if (num_updated > 0) {
+                                    var block_update_list = std.ArrayList(protocol.BlockUpdate).init(alloc);
+                                    defer block_update_list.deinit();
+                                    for (world.blocks_that_were_updated.items()) |entry| {
+                                        //try world.fillSunlight(chunk_pos);
+                                        try block_update_list.append(.{
+                                            .pos = entry.key,
+                                            .block = world.getv(entry.key),
                                         });
                                     }
+
+                                    broadcastPacket(alloc, &clients, ServerDatagram{
+                                        .BlockUpdate = block_update_list.items,
+                                    });
+
+                                    world.blocks_that_were_updated.clearRetainingCapacity();
                                 }
-                                world.updated.clearRetainingCapacity();
                             },
                         }
                     }
@@ -224,7 +232,7 @@ pub fn main() !void {
         // Update the world if enough time has passed
         var delta = @intToFloat(f64, timer.lap()) / std.time.ns_per_s; // Delta in seconds
         if (delta > MAX_DELTA) {
-            std.log.warn("delta was too great, reducing from {} to max {}", .{delta, MAX_DELTA});
+            std.log.warn("delta was too great, reducing from {} to max {}", .{ delta, MAX_DELTA });
             delta = MAX_DELTA; // Try to avoid spiral of death when lag hits
         }
 

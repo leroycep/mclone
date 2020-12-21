@@ -27,8 +27,8 @@ const ADJACENT_OFFSETS = [_]Vec3i{
 pub const World = struct {
     allocator: *std.mem.Allocator,
     chunks: std.AutoHashMap(Vec3i, Chunk),
-    updated: std.AutoArrayHashMap(Vec3i, void),
-    updated_blocks: ArrayDeque(Vec3i),
+    blocks_to_update: ArrayDeque(Vec3i),
+    blocks_that_were_updated: std.AutoArrayHashMap(Vec3i, void),
     blocks_to_tick: ArrayDeque(Vec3i),
 
     const BlockUpdate = struct {
@@ -42,15 +42,17 @@ pub const World = struct {
         return @This(){
             .allocator = allocator,
             .chunks = std.AutoHashMap(Vec3i, Chunk).init(allocator),
-            .updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
-            .updated_blocks = ArrayDeque(Vec3i).init(allocator),
+            .blocks_that_were_updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
+            .blocks_to_update = ArrayDeque(Vec3i).init(allocator),
             .blocks_to_tick = ArrayDeque(Vec3i).init(allocator),
         };
     }
 
     pub fn deinit(this: *@This()) void {
         this.chunks.deinit();
-        this.updated.deinit();
+        this.blocks_that_were_updated.deinit();
+        this.blocks_to_update.deinit();
+        this.blocks_to_tick.deinit();
     }
 
     pub fn ensureChunkLoaded(this: *@This(), chunkPos: Vec3i) !void {
@@ -112,7 +114,6 @@ pub const World = struct {
         }
 
         try this.chunks.put(chunkPos, chunk);
-        try this.updated.put(chunkPos, {});
         try this.fillSunlight(chunkPos);
     }
 
@@ -126,14 +127,10 @@ pub const World = struct {
         var lightBfsQueue = ArrayDeque(Vec3i).init(this.allocator);
         defer lightBfsQueue.deinit();
 
-        if (this.blocks_to_tick.len() > 0) {
-            std.log.debug("ticking {} blocks", .{this.blocks_to_tick.len()});
-        }
         while (this.blocks_to_tick.pop_front()) |updated_pos| {
             const updated_block = this.getv(updated_pos);
             const updated_desc = core.block.describe(updated_block);
 
-            std.log.debug("{} {} {} {} {}", .{@src().file, @src().fn_name, @src().line, updated_pos, updated_block});
             //std.log.debug("{} {} {}", .{@src().file, @src().fn_name, @src().line});
             updated_desc.tick(this, updated_pos);
 
@@ -155,10 +152,10 @@ pub const World = struct {
                 this.setTorchlightv(updated_pos, light_level);
                 try lightBfsQueue.push_back(updated_pos);
             }
-            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+            //try this.updated.put(updated_pos.scaleDivFloor(16), {});
         }
 
-        while (this.updated_blocks.pop_front()) |updated_pos| {
+        while (this.blocks_to_update.pop_front()) |updated_pos| {
             const updated_block = this.getv(updated_pos);
             const updated_desc = core.block.describe(updated_block);
 
@@ -182,7 +179,7 @@ pub const World = struct {
                 this.setTorchlightv(updated_pos, light_level);
                 try lightBfsQueue.push_back(updated_pos);
             }
-            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+            //try this.updated.put(updated_pos.scaleDivFloor(16), {});
         }
 
 
@@ -210,6 +207,7 @@ pub const World = struct {
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
             entry.value.setv(blockPos, blockType);
+            this.blocks_that_were_updated.put(globalPos, {}) catch unreachable;
         } else {
             std.log.debug("Block is not in loaded chunk: {} {}", .{ globalPos, blockType });
         }
@@ -224,7 +222,7 @@ pub const World = struct {
         defer lightBfsQueue.deinit();
 
         // Update light for blocks in updated queue
-        while (this.updated_blocks.pop_front()) |updated_pos| {
+        while (this.blocks_to_update.pop_front()) |updated_pos| {
             const updated_block = this.getv(updated_pos);
             const updated_desc = core.block.describe(updated_block);
 
@@ -248,7 +246,7 @@ pub const World = struct {
                 this.setTorchlightv(updated_pos, light_level);
                 try lightBfsQueue.push_back(updated_pos);
             }
-            try this.updated.put(updated_pos.scaleDivFloor(16), {});
+            //try this.updated.put(updated_pos.scaleDivFloor(16), {});
         }
 
         // Remove lights
@@ -261,10 +259,11 @@ pub const World = struct {
             const blockPos = globalPos.subv(chunkPos.scale(16));
 
             entry.value.setv(blockPos, block);
-            try this.updated_blocks.push_back(globalPos);
+            try this.blocks_to_update.push_back(globalPos);
+            this.blocks_that_were_updated.put(globalPos, {}) catch unreachable;
 
             for (ADJACENT_OFFSETS) |offset| {
-                try this.updated_blocks.push_back(globalPos.addv(offset));
+                try this.blocks_to_update.push_back(globalPos.addv(offset));
             }
         }
     }
@@ -312,7 +311,7 @@ pub const World = struct {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
-            this.updated.put(chunkPos, {}) catch unreachable;
+            //this.updated.put(chunkPos, {}) catch unreachable;
         }
     }
 

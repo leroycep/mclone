@@ -383,6 +383,11 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                 }
             }
         },
+        .BlockUpdate => |block_updates| {
+            for (block_updates) |block_update| {
+                worldRenderer.loadBlock(block_update.pos, block_update.block) catch unreachable;
+            }
+        },
     }
 }
 
