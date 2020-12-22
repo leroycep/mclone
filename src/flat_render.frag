@@ -10,5 +10,5 @@ uniform lowp sampler2D render3D;
 
 void main() {
   color = texture(render3D, uv);
-  color.a = frag_opacity;
+  color.a = min(color.a, frag_opacity);
 }

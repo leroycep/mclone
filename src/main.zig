@@ -59,6 +59,7 @@ var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 var texture1: gl.GLuint = undefined;
 var texture2: gl.GLuint = undefined;
+var cursor_texture: gl.GLuint = undefined;
 
 var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
@@ -115,6 +116,7 @@ pub fn onInit(context: *platform.Context) !void {
 
     texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
     texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
+    cursor_texture = try glUtil.loadTexture(context.alloc, "assets/cursor.png");
 
     try context.setRelativeMouseMode(true);
 
@@ -483,9 +485,6 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
 
     const projection = perspective.mul(Mat4f.lookAt(render_pos, render_pos.addv(lookat), up)).floatCast(f32);
 
-    const fbo1 = texture1;
-    const fbo2 = texture2;
-
     gl.clearColor(0.5, 0.5, 0.5, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, screen_size_int.x, screen_size_int.y);
@@ -497,8 +496,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
-    try flatRenderer.drawTexture(fbo1, vec2f32(0, 0), vec2f32(1, 1), vec2f32(0, 0), vec2f32(100, 100));
-    try flatRenderer.drawTexture(fbo2, vec2f32(0, 0), vec2f32(1, 1), vec2f32(100, 100), vec2f32(100, 100));
-    try flatRenderer.drawTexture(fbo1, vec2f32(0, 0), vec2f32(1, 1), vec2f32(200, 200), vec2f32(100, 100));
+    const cursor_size = vec2f32(18, 18);
+    const cursor_pos = screen_size.scaleDiv(2).subv(cursor_size.scaleDiv(2));
+    try flatRenderer.drawTexture(cursor_texture, vec2f32(0, 0), vec2f32(1, 1), cursor_pos, cursor_size);
     flatRenderer.flush();
 }
