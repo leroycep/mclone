@@ -26,6 +26,7 @@ const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
 const zigimg = @import("zigimg");
 const net = platform.net;
+const Texture = @import("./texture.zig").Texture;
 
 const DEG_TO_RAD = std.math.pi / 180.0;
 
@@ -59,7 +60,7 @@ var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 var texture1: gl.GLuint = undefined;
 var texture2: gl.GLuint = undefined;
-var cursor_texture: gl.GLuint = undefined;
+var cursor_texture: Texture = undefined;
 
 var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
 var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
@@ -116,7 +117,7 @@ pub fn onInit(context: *platform.Context) !void {
 
     texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
     texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
-    cursor_texture = try glUtil.loadTexture(context.alloc, "assets/cursor.png");
+    cursor_texture = try Texture.initFromFile(context.alloc, "assets/cursor.png");
 
     try context.setRelativeMouseMode(true);
 
@@ -499,8 +500,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
-    const cursor_size = vec2f32(18, 18);
+    const cursor_size = cursor_texture.size.intToFloat(f32).scale(1.1);
     const cursor_pos = screen_size.scaleDiv(2).subv(cursor_size.scaleDiv(2));
-    try flatRenderer.drawTexture(cursor_texture, vec2f32(0, 0), vec2f32(1, 1), cursor_pos, cursor_size);
+    try flatRenderer.drawTexture(cursor_texture, cursor_pos, cursor_size);
     flatRenderer.flush();
 }
