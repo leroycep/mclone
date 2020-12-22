@@ -9,6 +9,9 @@ const World = core.World;
 const platform = @import("platform");
 const gl = platform.gl;
 const Vec3i = @import("math").Vec(3, i64);
+const mesh = @import("./mesh.zig");
+const Mesh = mesh.Mesh;
+const Vertex = mesh.Vertex;
 
 const Byte4 = [4]gl.GLbyte;
 const GLuint = gl.GLuint;
@@ -26,82 +29,6 @@ fn vertexAO(side1: bool, side2: bool, corner: bool) u2 {
     const co: u2 = @boolToInt(corner);
     return 3 - (s1 + s2 + co);
 }
-
-const GLbyte = gl.GLbyte;
-const Vertex = [9]gl.GLbyte;
-
-pub const QuadBuildOptions = struct {
-    direction: block.Side,
-    x: GLbyte,
-    y: GLbyte,
-    z: GLbyte,
-    x_frac: GLbyte = 0,
-    y_frac: GLbyte = 0,
-    z_frac: GLbyte = 0,
-    tex: GLbyte,
-    /// The 9 blocks that will affect AO for the quad
-    ao: ?[3][3]Block = null,
-    light: GLbyte,
-};
-
-pub const Mesh = struct {
-    allocator: *std.mem.Allocator,
-    vertex: std.ArrayList(Vertex),
-
-    pub fn init(alloc: *std.mem.Allocator) !@This() {
-        return @This(){
-            .allocator = alloc,
-            .vertex = try std.ArrayList(Vertex).initCapacity(alloc, CX * CY * CZ * 6 * 6),
-        };
-    }
-
-    pub fn deinit(this: *@This()) void {
-        this.vertex.deinit();
-    }
-
-    pub fn addVertex(this: *@This(), x: GLbyte, y: GLbyte, z: GLbyte, tex: GLbyte, ao: GLbyte, light: GLbyte) !void {
-        try this.vertex.append(Vertex{ x, y, z, 0, 0, 0, tex, ao, light });
-    }
-
-    pub fn addVertexRaw(this: *@This(), x: GLbyte, y: GLbyte, z: GLbyte, x_frac: GLbyte, y_frac: GLbyte, z_frac: GLbyte, tex: GLbyte, ao: GLbyte, light: GLbyte) !void {
-        try this.vertex.append(Vertex{ x, y, z, x_frac, y_frac, z_frac, tex, ao, light });
-    }
-
-    pub fn addUpQuad(this: *@This(), options: QuadBuildOptions) !void {
-        const x = options.x;
-        const y = options.y;
-        const z = options.z;
-        const x_frac = options.x_frac;
-        const y_frac = options.y_frac;
-        const z_frac = options.z_frac;
-        const tex = options.tex;
-        const light = options.tex;
-        if (options.ao) |ao| {
-            // TODO: Fix ambient occlusion
-            //const east = block.describe(ao[2][1]).isVisible(world, vec3i(x, y, z));
-            //const west = block.describe(ao[0][1]).isVisible(world, vec3i(x, y, z));
-            //const north = block.describe(ao[1][2]).isVisible(world, vec3i(x, y, z));
-            //const south = block.describe(ao[1][0]).isVisible(world, vec3i(x, y, z));
-            //const north_east = block.describe(ao[2][2]).isVisible(world, vec3i(x, y, z));
-            //const north_west = block.describe(ao[0][2]).isVisible(world, vec3i(x, y, z));
-            //const south_east = block.describe(ao[2][0]).isVisible(world, vec3i(x, y, z));
-            //const south_west = block.describe(ao[0][0]).isVisible(world, vec3i(x, y, z));
-            //try this.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
-            //try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-            //try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-            //try this.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-            //try this.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-            //try this.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
-        } else {
-            try this.addVertexRaw(x, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
-            try this.addVertexRaw(x, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
-            try this.addVertexRaw(x + 1, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
-            try this.addVertexRaw(x + 1, y + 1, z, x_frac, y_frac, z_frac, tex, 0, light);
-            try this.addVertexRaw(x, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
-            try this.addVertexRaw(x + 1, y + 1, z + 1, x_frac, y_frac, z_frac, tex, 0, light);
-        }
-    }
-};
 
 pub const ChunkRender = struct {
     vbo: GLuint,
@@ -124,8 +51,8 @@ pub const ChunkRender = struct {
     }
 
     pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: *const World) !void {
-        var mesh: Mesh = try Mesh.init(self.allocator);
-        defer mesh.deinit();
+        var chunkMesh: Mesh = try Mesh.init(self.allocator);
+        defer chunkMesh.deinit();
         var i: u32 = 0;
 
         var xi: u8 = 0;
@@ -150,7 +77,7 @@ pub const ChunkRender = struct {
                     if (blk.blockType == .Wire) {
                         const tex = -@bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .Top));
                         const light = @bitCast(gl.GLbyte, world.getLightv(global_pos));
-                        const opt = mesh.addUpQuad(QuadBuildOptions{
+                        const opt = chunkMesh.addUpQuad(.{
                             .direction = .Top,
                             .x = x,
                             .y = y,
@@ -173,12 +100,12 @@ pub const ChunkRender = struct {
                         const north_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isUsedForAO;
                         const south_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isUsedForAO;
                         const south_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isUsedForAO;
-                        try mesh.addVertex(x, y, z, tex, vertexAO(bottom, south, south_bottom), light);
-                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
+                        try chunkMesh.addVertex(x, y, z, tex, vertexAO(bottom, south, south_bottom), light);
+                        try chunkMesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try chunkMesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try chunkMesh.addVertex(x, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try chunkMesh.addVertex(x, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try chunkMesh.addVertex(x, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
                     }
 
                     // View from positive x
@@ -193,12 +120,12 @@ pub const ChunkRender = struct {
                         const north_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isUsedForAO;
                         const south_top = block.describe(world.getv(global_pos.add(1, 1, -1))).isUsedForAO;
                         const south_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isUsedForAO;
-                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(bottom, south, south_bottom), light);
-                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
-                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
-                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
-                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try chunkMesh.addVertex(x + 1, y, z, tex, vertexAO(bottom, south, south_bottom), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try chunkMesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z, tex, vertexAO(top, south, south_top), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(top, north, north_top), light);
+                        try chunkMesh.addVertex(x + 1, y, z + 1, tex, vertexAO(bottom, north, north_bottom), light);
                     }
 
                     // View from negative y
@@ -213,12 +140,12 @@ pub const ChunkRender = struct {
                         const north_west = block.describe(world.getv(global_pos.add(-1, -1, 1))).isUsedForAO;
                         const south_east = block.describe(world.getv(global_pos.add(1, -1, -1))).isUsedForAO;
                         const south_west = block.describe(world.getv(global_pos.add(-1, -1, -1))).isUsedForAO;
-                        try mesh.addVertex(x, y, z, tex, vertexAO(south, west, south_west), light);
-                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
-                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
-                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
-                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(north, east, north_east), light);
-                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try chunkMesh.addVertex(x, y, z, tex, vertexAO(south, west, south_west), light);
+                        try chunkMesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
+                        try chunkMesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try chunkMesh.addVertex(x + 1, y, z, tex, vertexAO(south, east, south_east), light);
+                        try chunkMesh.addVertex(x + 1, y, z + 1, tex, vertexAO(north, east, north_east), light);
+                        try chunkMesh.addVertex(x, y, z + 1, tex, vertexAO(north, west, north_west), light);
                     }
 
                     // View from positive y
@@ -233,12 +160,12 @@ pub const ChunkRender = struct {
                         const north_west = block.describe(world.getv(global_pos.add(-1, 1, 1))).isUsedForAO;
                         const south_east = block.describe(world.getv(global_pos.add(1, 1, -1))).isUsedForAO;
                         const south_west = block.describe(world.getv(global_pos.add(-1, 1, -1))).isUsedForAO;
-                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
-                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
-                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
-                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
+                        try chunkMesh.addVertex(x, y + 1, z, tex, vertexAO(south, west, south_west), light);
+                        try chunkMesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z, tex, vertexAO(south, east, south_east), light);
+                        try chunkMesh.addVertex(x, y + 1, z + 1, tex, vertexAO(north, west, north_west), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(north, east, north_east), light);
                     }
 
                     // View from negative z
@@ -253,12 +180,12 @@ pub const ChunkRender = struct {
                         const east_bottom = block.describe(world.getv(global_pos.add(1, -1, -1))).isUsedForAO;
                         const west_top = block.describe(world.getv(global_pos.add(-1, 1, -1))).isUsedForAO;
                         const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, -1))).isUsedForAO;
-                        try mesh.addVertex(x, y, z, tex, vertexAO(west, bottom, west_bottom), light);
-                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
-                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
-                        try mesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
-                        try mesh.addVertex(x + 1, y + 1, z, tex, vertexAO(east, top, east_top), light);
-                        try mesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
+                        try chunkMesh.addVertex(x, y, z, tex, vertexAO(west, bottom, west_bottom), light);
+                        try chunkMesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
+                        try chunkMesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
+                        try chunkMesh.addVertex(x, y + 1, z, tex, vertexAO(west, top, west_top), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z, tex, vertexAO(east, top, east_top), light);
+                        try chunkMesh.addVertex(x + 1, y, z, tex, vertexAO(east, bottom, east_bottom), light);
                     }
 
                     // View from positive z
@@ -273,20 +200,20 @@ pub const ChunkRender = struct {
                         const east_bottom = block.describe(world.getv(global_pos.add(1, -1, 1))).isUsedForAO;
                         const west_top = block.describe(world.getv(global_pos.add(-1, 1, 1))).isUsedForAO;
                         const west_bottom = block.describe(world.getv(global_pos.add(-1, -1, 1))).isUsedForAO;
-                        try mesh.addVertex(x, y, z + 1, tex, vertexAO(west, bottom, west_bottom), light);
-                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
-                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
-                        try mesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
-                        try mesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
-                        try mesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top), light);
+                        try chunkMesh.addVertex(x, y, z + 1, tex, vertexAO(west, bottom, west_bottom), light);
+                        try chunkMesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
+                        try chunkMesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
+                        try chunkMesh.addVertex(x, y + 1, z + 1, tex, vertexAO(west, top, west_top), light);
+                        try chunkMesh.addVertex(x + 1, y, z + 1, tex, vertexAO(east, bottom, east_bottom), light);
+                        try chunkMesh.addVertex(x + 1, y + 1, z + 1, tex, vertexAO(east, top, east_top), light);
                     }
                 }
             }
         }
 
-        self.elements = mesh.vertex.items.len;
+        self.elements = chunkMesh.vertex.items.len;
         gl.bindBuffer(gl.ARRAY_BUFFER, self.vbo);
-        gl.bufferData(gl.ARRAY_BUFFER, @intCast(c_long, mesh.vertex.items.len) * @sizeOf(Vertex), mesh.vertex.items.ptr, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, @intCast(c_long, chunkMesh.vertex.items.len) * @sizeOf(Vertex), chunkMesh.vertex.items.ptr, gl.STATIC_DRAW);
     }
 
     pub fn render(self: *@This(), shaderProgram: gl.GLuint) void {
