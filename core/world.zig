@@ -30,6 +30,7 @@ pub const World = struct {
     blocks_to_update: ArrayDeque(Vec3i),
     blocks_that_were_updated: std.AutoArrayHashMap(Vec3i, void),
     blocks_to_tick: ArrayDeque(Vec3i),
+    chunks_where_light_was_updated: std.AutoArrayHashMap(Vec3i, void),
 
     const BlockUpdate = struct {
         // The block that was updated
@@ -45,6 +46,7 @@ pub const World = struct {
             .blocks_that_were_updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
             .blocks_to_update = ArrayDeque(Vec3i).init(allocator),
             .blocks_to_tick = ArrayDeque(Vec3i).init(allocator),
+            .chunks_where_light_was_updated = std.AutoArrayHashMap(Vec3i, void).init(allocator),
         };
     }
 
@@ -53,6 +55,7 @@ pub const World = struct {
         this.blocks_that_were_updated.deinit();
         this.blocks_to_update.deinit();
         this.blocks_to_tick.deinit();
+        this.chunks_where_light_was_updated.deinit();
     }
 
     pub fn ensureChunkLoaded(this: *@This(), chunkPos: Vec3i) !void {
@@ -280,6 +283,17 @@ pub const World = struct {
         }
     }
 
+    pub fn setLightv(this: *@This(), blockPos: Vec3i, light: u8) void {
+        const tracy = trace(@src());
+        defer tracy.end();
+
+        const chunkPos = blockPos.scaleDivFloor(16);
+        if (this.chunks.getEntry(chunkPos)) |chunk_entry| {
+            chunk_entry.value.setLightv(blockPos.subv(chunkPos.scale(16)), light);
+            this.chunks_where_light_was_updated.put(chunkPos, {}) catch unreachable;
+        }
+    }
+
     pub fn getTorchlightv(this: @This(), blockPos: Vec3i) u4 {
         const tracy = trace(@src());
         defer tracy.end();
@@ -311,7 +325,7 @@ pub const World = struct {
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
-            //this.updated.put(chunkPos, {}) catch unreachable;
+            this.chunks_where_light_was_updated.put(chunkPos, {}) catch unreachable;
         }
     }
 
@@ -321,8 +335,9 @@ pub const World = struct {
 
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
-            entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
-            this.updated.put(chunkPos, {}) catch unreachable;
+            if(entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel)) {
+                this.light_that_was_updated.put(blockPos, {}) catch unreachable;
+            }
         } else {
             std.log.debug("Trying to set sunlight in unloaded chunk", .{});
         }
@@ -528,7 +543,7 @@ pub const World = struct {
                 while (y < CY) : (y += 1) {
                     var z: u8 = 0;
                     while (z < CZ) : (z += 1) {
-                        chunk.setSunlight(x, y, z, 0);
+                        _ = chunk.setSunlight(x, y, z, 0);
                     }
                 }
             }
@@ -547,9 +562,9 @@ pub const World = struct {
                     if (lightLevel > 1 and !chunk.describe(x, CY - 1, z).isOpaque(self, globalPos)) {
                         var pos = Vec3i.init(x, CY - 1, z);
                         if (lightLevel == 15) {
-                            chunk.setSunlightv(pos, lightLevel);
+                            _ = chunk.setSunlightv(pos, lightLevel);
                         } else {
-                            chunk.setSunlightv(pos, lightLevel - 1);
+                            _ = chunk.setSunlightv(pos, lightLevel - 1);
                         }
                         try lightBfsQueue.push_back(pos);
                     }
@@ -564,7 +579,7 @@ pub const World = struct {
                     const pos = Vec3i.init(x, CY - 1, z);
                     const globalPos = chunkPos.scale(16).add(x, CY - 1, z);
                     if (!chunk.describev(pos).isOpaque(self, globalPos)) {
-                        chunk.setSunlightv(pos, 15);
+                        _ = chunk.setSunlightv(pos, 15);
                         try lightBfsQueue.push_back(pos);
                     }
                 }
@@ -600,9 +615,9 @@ pub const World = struct {
                     calculatedLevel >= chunk.getSunlightv(offset_pos))
                 {
                     if (offset.y < 0) {
-                        chunk.setSunlightv(offset_pos, lightLevel);
+                        _ = chunk.setSunlightv(offset_pos, lightLevel);
                     } else {
-                        chunk.setSunlightv(offset_pos, lightLevel - 1);
+                        _ = chunk.setSunlightv(offset_pos, lightLevel - 1);
                     }
                     try lightBfsQueue.push_back(offset_pos);
                 }
@@ -610,5 +625,6 @@ pub const World = struct {
         }
 
         chunk.isSunlightCalculated = true;
+        self.chunks_where_light_was_updated.put(chunkPos, {}) catch unreachable;
     }
 };

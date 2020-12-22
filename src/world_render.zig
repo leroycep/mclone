@@ -74,6 +74,11 @@ pub const WorldRenderer = struct {
         try this.chunks_that_were_updated.put(globalPos.scaleDivFloor(16), {});
     }
 
+    pub fn setLightv(this: *@This(), globalPos: Vec3i, light: u8) !void {
+        this.world.setLightv(globalPos, light);
+        try this.chunks_that_were_updated.put(globalPos.scaleDivFloor(16), {});
+    }
+
     pub fn render(this: *@This(), context: *platform.Context, projection: Mat4f, daytime: u32) void {
         var updated_chunks_iter = this.chunks_that_were_updated.iterator();
         while (updated_chunks_iter.next()) |updated_chunk_entry| {

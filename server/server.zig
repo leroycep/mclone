@@ -72,6 +72,7 @@ pub fn main() !void {
         }
     }
     world.blocks_that_were_updated.clearRetainingCapacity();
+    world.chunks_where_light_was_updated.clearRetainingCapacity();
 
     const max_players = 24;
     var num_players: usize = 0;
@@ -211,6 +212,23 @@ pub fn main() !void {
                                     });
 
                                     world.blocks_that_were_updated.clearRetainingCapacity();
+                                }
+
+                                const num_light_updated = world.chunks_where_light_was_updated.items().len;
+                                if (num_light_updated > 0) {
+                                    var light_update_list = std.ArrayList(protocol.LightUpdate).init(alloc);
+                                    defer light_update_list.deinit();
+                                    for (world.chunks_where_light_was_updated.items()) |chunk_pos_entry| {
+                                        if (world.chunks.getEntry(chunk_pos_entry.key)) |chunk_entry| {
+                                            try chunk_entry.value.getLightDiffs(chunk_pos_entry.key, &light_update_list);
+                                        }
+                                    }
+
+                                    broadcastPacket(alloc, &clients, ServerDatagram{
+                                        .LightUpdate = light_update_list.items,
+                                    });
+
+                                    world.chunks_where_light_was_updated.clearRetainingCapacity();
                                 }
                             },
                         }

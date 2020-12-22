@@ -388,6 +388,12 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
                 worldRenderer.loadBlock(block_update.pos, block_update.block) catch unreachable;
             }
         },
+        .LightUpdate => |light_updates| {
+            for (light_updates) |light_update| {
+                worldRenderer.setLightv(light_update.pos, light_update.light) catch unreachable;
+                worldRenderer.world.chunks_where_light_was_updated.clearRetainingCapacity();
+            }
+        },
     }
 }
 

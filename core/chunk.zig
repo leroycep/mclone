@@ -19,14 +19,14 @@ pub const Light = u8;
 pub const Chunk = struct {
     blk: [CX][CY][CZ]Block,
     light: [CX][CY][CZ]Light,
-    changed: bool,
+    prev_light: [CX][CY][CZ]Light,
     isSunlightCalculated: bool,
 
     pub fn init() @This() {
         return @This(){
             .blk = std.mem.zeroes([CX][CY][CZ]Block),
             .light = std.mem.zeroes([CX][CY][CZ]Light),
-            .changed = true,
+            .prev_light = std.mem.zeroes([CX][CY][CZ]Light),
             .isSunlightCalculated = false,
         };
     }
@@ -65,32 +65,36 @@ pub const Chunk = struct {
 
     pub fn set(self: *@This(), x: i64, y: i64, z: i64, block: Block) void {
         self.blk[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = block;
-        self.changed = true;
     }
 
     pub fn setv(self: *@This(), pos: Vec3i, block: Block) void {
         self.blk[@intCast(u8, pos.x)][@intCast(u8, pos.y)][@intCast(u8, pos.z)] = block;
-        self.changed = true;
     }
 
     pub fn setSunlight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u4) void {
         var lvl: u8 = newlevel;
         var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF) | (lvl << 4);
         self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = level;
-        self.changed = true;
     }
 
     pub fn setSunlightv(self: *@This(), pos: Vec3i, level: u4) void {
-        self.setSunlight(pos.x, pos.y, pos.z, level);
+        return self.setSunlight(pos.x, pos.y, pos.z, level);
     }
 
     pub fn setTorchlight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u8) void {
         var level = (self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] & 0xF0) | newlevel;
         self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = level;
-        self.changed = true;
     }
 
     pub fn setTorchlightv(self: *@This(), pos: Vec3i, level: u8) void {
+        return self.setTorchlight(pos.x, pos.y, pos.z, level);
+    }
+
+    pub fn setLight(self: *@This(), x: i64, y: i64, z: i64, newlevel: u8) void {
+        self.light[@intCast(u8, x)][@intCast(u8, y)][@intCast(u8, z)] = newlevel;
+    }
+
+    pub fn setLightv(self: *@This(), pos: Vec3i, level: u8) void {
         self.setTorchlight(pos.x, pos.y, pos.z, level);
     }
 
@@ -318,5 +322,24 @@ pub const Chunk = struct {
             .max = max,
             .current = min,
         };
+    }
+
+    pub fn getLightDiffs(this: *@This(), chunkPos: Vec3i, updateList: *std.ArrayList(core.protocol.LightUpdate)) !void {
+        var xi: u8 = 0;
+        while (xi < CX) : (xi += 1) {
+            var yi: u8 = 0;
+            while (yi < CY) : (yi += 1) {
+                var zi: u8 = 0;
+                while (zi < CZ) : (zi += 1) {
+                    if (this.light[xi][yi][zi] !=  this.prev_light[xi][yi][zi]) {
+                        try updateList.append(.{
+                            .pos = chunkPos.scale(16).add(xi, yi, zi),
+                            .light = this.light[xi][yi][zi],
+                        });
+                    }
+                }
+            }
+        }
+        this.prev_light = this.light;
     }
 };
