@@ -114,14 +114,9 @@ pub fn onInit(context: *platform.Context) !void {
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
     flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
 
-<<<<<<< HEAD
     texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
     texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
     cursor_texture = try glUtil.loadTexture(context.alloc, "assets/cursor.png");
-=======
-    // texture1 = try glUtil.loadTexture(context.alloc, "assets/grass.png");
-    // texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
->>>>>>> d9d9880 (Comment out flat_render)
 
     try context.setRelativeMouseMode(true);
 
