@@ -113,6 +113,9 @@ pub fn loadTexture(alloc: *std.mem.Allocator, filePath: []const u8) !gl.GLuint {
     const width = @intCast(c_int, load_res.width);
     const height = @intCast(c_int, load_res.height);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixelData.ptr);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
     gl.generateMipmap(gl.TEXTURE_2D);
 
     return tex;

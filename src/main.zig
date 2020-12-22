@@ -497,5 +497,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
-    flatRenderer.render(context, fbo1, fbo2);
+    try flatRenderer.drawTexture(fbo1, vec2f32(0, 0), vec2f32(1, 1), vec2f32(0, 0), vec2f32(100, 100));
+    try flatRenderer.drawTexture(fbo2, vec2f32(0, 0), vec2f32(1, 1), vec2f32(100, 100), vec2f32(100, 100));
+    try flatRenderer.drawTexture(fbo1, vec2f32(0, 0), vec2f32(1, 1), vec2f32(200, 200), vec2f32(100, 100));
+    flatRenderer.flush();
 }

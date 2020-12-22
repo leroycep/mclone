@@ -13,6 +13,7 @@ const Vertex = extern struct {
     y: f32,
     u: f32,
     v: f32,
+    opacity: f32,
 };
 
 pub const FlatRenderer = struct {
@@ -23,6 +24,8 @@ pub const FlatRenderer = struct {
     projectionMatrixUniform: gl.GLint,
     perspective: Mat4f,
     elements: gl.GLint,
+    draw_buffer: ArrayList(Vertex),
+    texture: gl.GLuint,
 
     /// Font should be the name of the font texture and csv minus their extensions
     pub fn init(allocator: *std.mem.Allocator, screenSize: Vec2f) !@This() {
@@ -47,10 +50,12 @@ pub const FlatRenderer = struct {
 
         gl.enableVertexAttribArray(0); // Position attribute
         gl.enableVertexAttribArray(1); // UV attribute
+        gl.enableVertexAttribArray(2); // UV attribute
 
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const c_void, @byteOffsetOf(Vertex, "x")));
         gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const c_void, @byteOffsetOf(Vertex, "u")));
+        gl.vertexAttribPointer(2, 1, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const c_void, @byteOffsetOf(Vertex, "opacity")));
         gl.bindBuffer(gl.ARRAY_BUFFER, 0);
 
         const projection = gl.getUniformLocation(program, "mvp");
@@ -63,74 +68,82 @@ pub const FlatRenderer = struct {
             .projectionMatrixUniform = projection,
             .perspective = Mat4f.orthographic(0, screenSize.x, screenSize.y, 0, -1, 1),
             .elements = 0,
+            .draw_buffer = ArrayList(Vertex).init(allocator),
+            .texture = 0,
         };
     }
 
     pub fn deinit(this: @This()) void {
+        this.draw_buffer.deinit();
         gl.deleteProgram(this.program);
         gl.deleteVertexArrays(1, &this.vertex_array_object);
         gl.deleteBuffers(1, &this.vertex_buffer_object);
     }
 
     pub fn setSize(this: *@This(), screenSize: Vec2f) !void {
-        gl.bindVertexArray(this.vertex_array_object);
-        defer gl.bindVertexArray(0);
-        var vertices = ArrayList(Vertex).init(this.allocator);
-        defer vertices.deinit();
-        const width = screenSize.x;
-        const height = screenSize.y;
-        // for (text) |char|
-        {
-            try vertices.appendSlice(&[_]Vertex{
-                Vertex{ // top left
-                    .x = 0,
-                    .y = 0,
-                    .u = 0,
-                    .v = 0,
-                },
-                Vertex{ // bot left
-                    .x = 0,
-                    .y = height,
-                    .u = 0,
-                    .v = 1,
-                },
-                Vertex{ // top right
-                    .x = width,
-                    .y = 0,
-                    .u = 1,
-                    .v = 0,
-                },
-                Vertex{ // bot left
-                    .x = 0,
-                    .y = height,
-                    .u = 0,
-                    .v = 1,
-                },
-                Vertex{ // top right
-                    .x = width,
-                    .y = 0,
-                    .u = 1,
-                    .v = 0,
-                },
-                Vertex{ // bot right
-                    .x = width,
-                    .y = height,
-                    .u = 1,
-                    .v = 1,
-                },
-            });
-        }
-
-        this.elements = @intCast(gl.GLint, vertices.items.len);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
-        gl.bufferData(gl.ARRAY_BUFFER, @intCast(isize, vertices.items.len) * @sizeOf(Vertex), vertices.items.ptr, gl.STATIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, 0);
-
         this.perspective = Mat4f.orthographic(0, screenSize.x, screenSize.y, 0, -1, 1);
     }
 
-    pub fn render(this: @This(), context: *platform.Context, fbo1: gl.GLuint, fbo2: gl.GLuint) void {
+    pub fn drawTexture(this: *@This(), texture: gl.GLuint, texPos: Vec2f, texSize: Vec2f, pos: Vec2f, size: Vec2f) !void {
+        if (texture != this.texture) {
+            this.flush();
+            this.texture = texture;
+        }
+        const opacity = 1.0;
+        try this.draw_buffer.appendSlice(&[_]Vertex{
+            Vertex{ // top left
+                .x = pos.x,
+                .y = pos.y,
+                .u = texPos.x,
+                .v = texPos.y,
+                .opacity = opacity,
+            },
+            Vertex{ // bot left
+                .x = pos.x,
+                .y = pos.y + size.y,
+                .u = texPos.x,
+                .v = texPos.y + texSize.y,
+                .opacity = opacity,
+            },
+            Vertex{ // top right
+                .x = pos.x + size.x,
+                .y = pos.y,
+                .u = texPos.x + texSize.x,
+                .v = texPos.y,
+                .opacity = opacity,
+            },
+            Vertex{ // bot left
+                .x = pos.x,
+                .y = pos.y + size.y,
+                .u = texPos.x,
+                .v = texPos.y + texSize.y,
+                .opacity = opacity,
+            },
+            Vertex{ // top right
+                .x = pos.x + size.x,
+                .y = pos.y,
+                .u = texPos.x + texSize.y,
+                .v = texPos.y,
+                .opacity = opacity,
+            },
+            Vertex{ // bot right
+                .x = pos.x + size.x,
+                .y = pos.y + size.y,
+                .u = texPos.x + texSize.x,
+                .v = texPos.y + texSize.y,
+                .opacity = opacity,
+            },
+        });
+    }
+
+    pub fn flush(this: *@This()) void {
+        gl.bindVertexArray(this.vertex_array_object);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer_object);
+        gl.bufferData(gl.ARRAY_BUFFER, @intCast(isize, this.draw_buffer.items.len) * @sizeOf(Vertex), this.draw_buffer.items.ptr, gl.STATIC_DRAW);
+        defer this.draw_buffer.shrinkRetainingCapacity(0);
+        gl.bindVertexArray(0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, 0);
+
         gl.useProgram(this.program);
         defer gl.useProgram(0);
 
@@ -145,15 +158,12 @@ pub const FlatRenderer = struct {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, fbo1);
-
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, fbo2);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &this.perspective.v);
 
         gl.bindVertexArray(this.vertex_array_object);
         defer gl.bindVertexArray(0);
-        gl.drawArrays(gl.TRIANGLES, 0, this.elements);
+        gl.drawArrays(gl.TRIANGLES, 0, @intCast(c_int, this.draw_buffer.items.len));
     }
 };
