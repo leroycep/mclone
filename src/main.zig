@@ -513,7 +513,17 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const cursor_size = cursor_texture.size.intToFloat(f32).scale(1.1);
     const cursor_pos = screen_size.scaleDiv(2).subv(cursor_size.scaleDiv(2));
     try flatRenderer.drawTexture(cursor_texture, cursor_pos, cursor_size);
-    try bitmapFontRenderer.drawText(&flatRenderer, "MCLONE", vec2f32(30, 30), .{});
+
+    var text_buf: [1024]u8 = undefined;
+
+    const pos_text = try std.fmt.bufPrint(&text_buf, "{d:.02}", .{player_state.position});
+    try bitmapFontRenderer.drawText(&flatRenderer, pos_text, vec2f32(30, 30), .{});
+
+    const item_text = try std.fmt.bufPrint(&text_buf, "{}", .{std.meta.tagName(item)});
+    try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x/2, screen_size.y - 5), .{
+        .textAlign = .Center,
+        .textBaseline = .Bottom,
+    });
 
     flatRenderer.flush();
 }
