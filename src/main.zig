@@ -21,6 +21,7 @@ const BlockType = core.block.BlockType;
 const WorldRenderer = @import("./world_render.zig").WorldRenderer;
 const LineRenderer = @import("./line_render.zig").LineRenderer;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
+const BitmapFontRenderer = @import("./font_render.zig").BitmapFontRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
@@ -35,6 +36,7 @@ var daytime: u32 = 0;
 var worldRenderer: WorldRenderer = undefined;
 var lineRenderer: LineRenderer = undefined;
 var flatRenderer: FlatRenderer = undefined;
+var bitmapFontRenderer: BitmapFontRenderer = undefined;
 var tilesetTex: gl.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
@@ -114,6 +116,7 @@ pub fn onInit(context: *platform.Context) !void {
     worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
     flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
+    bitmapFontRenderer = try BitmapFontRenderer.initFromFile(context.alloc, "assets/PressStart2P_8.fnt");
 
     texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
     texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
@@ -136,6 +139,7 @@ fn onDeinit(context: *platform.Context) void {
     worldRenderer.deinit();
     lineRenderer.deinit();
     flatRenderer.deinit();
+    bitmapFontRenderer.deinit();
     moves.deinit();
     other_player_states.deinit();
     socket.deinit();
@@ -503,5 +507,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const cursor_size = cursor_texture.size.intToFloat(f32).scale(1.1);
     const cursor_pos = screen_size.scaleDiv(2).subv(cursor_size.scaleDiv(2));
     try flatRenderer.drawTexture(cursor_texture, cursor_pos, cursor_size);
+    try bitmapFontRenderer.drawText(&flatRenderer, "MCLONE", vec2f32(30, 30), .{});
+
     flatRenderer.flush();
 }

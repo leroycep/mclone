@@ -89,11 +89,11 @@ pub const FlatRenderer = struct {
         try this.drawGLTexture(texture.glTexture, vec2f(0, 0), vec2f(1.0, 1.0), pos, size);
     }
 
-    pub fn drawTextureRect(this: *@This(), texture: Texture, texPos: Vec2f, texSize: Vec2f, pos: Vec2f, size: Vec2f) !void {
-        try this.drawGLTexture(texture.glTexture, texPos, texSize, pos, size);
+    pub fn drawTextureRect(this: *@This(), texture: Texture, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) !void {
+        try this.drawGLTexture(texture.glTexture, texPos1, texPos2, pos, size);
     }
 
-    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos: Vec2f, texSize: Vec2f, pos: Vec2f, size: Vec2f) !void {
+    pub fn drawGLTexture(this: *@This(), texture: gl.GLuint, texPos1: Vec2f, texPos2: Vec2f, pos: Vec2f, size: Vec2f) !void {
         if (texture != this.texture) {
             this.flush();
             this.texture = texture;
@@ -103,43 +103,43 @@ pub const FlatRenderer = struct {
             Vertex{ // top left
                 .x = pos.x,
                 .y = pos.y,
-                .u = texPos.x,
-                .v = texPos.y,
+                .u = texPos1.x,
+                .v = texPos1.y,
                 .opacity = opacity,
             },
             Vertex{ // bot left
                 .x = pos.x,
                 .y = pos.y + size.y,
-                .u = texPos.x,
-                .v = texSize.y,
+                .u = texPos1.x,
+                .v = texPos2.y,
                 .opacity = opacity,
             },
             Vertex{ // top right
                 .x = pos.x + size.x,
                 .y = pos.y,
-                .u = texSize.x,
-                .v = texPos.y,
+                .u = texPos2.x,
+                .v = texPos1.y,
                 .opacity = opacity,
             },
             Vertex{ // bot left
                 .x = pos.x,
                 .y = pos.y + size.y,
-                .u = texPos.x,
-                .v = texSize.y,
+                .u = texPos1.x,
+                .v = texPos2.y,
                 .opacity = opacity,
             },
             Vertex{ // top right
                 .x = pos.x + size.x,
                 .y = pos.y,
-                .u = texSize.y,
-                .v = texPos.y,
+                .u = texPos2.x,
+                .v = texPos1.y,
                 .opacity = opacity,
             },
             Vertex{ // bot right
                 .x = pos.x + size.x,
                 .y = pos.y + size.y,
-                .u = texSize.x,
-                .v = texSize.y,
+                .u = texPos2.x,
+                .v = texPos2.y,
                 .opacity = opacity,
             },
         });
