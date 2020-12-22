@@ -220,6 +220,20 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             ._7 => item = .Torch,
             ._8 => item = .Wire,
             ._9 => item = .SignalSource,
+            .EQUALS => if (event == .KeyDown) {
+                const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
+                var itemNum = @enumToInt(item) + 1;
+                itemNum = itemNum % blockTypeCount;
+                item = @intToEnum(BlockType, itemNum);
+            },
+            .MINUS => if (event == .KeyDown) {
+                const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
+                var itemNum = @enumToInt(item) -% 1;
+                if (itemNum > @enumToInt(item)) {
+                    itemNum = blockTypeCount - 1;
+                }
+                item = @intToEnum(BlockType, itemNum);
+            },
             else => {},
         },
         .MouseMotion => |mouse_move| {
@@ -283,6 +297,20 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 }
             },
             else => {},
+        },
+        .MouseWheel => |mouse_wheel| {
+            const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
+            var itemNum = @enumToInt(item);
+            if (mouse_wheel.y < 0) {
+                itemNum = itemNum -% @intCast(u8, try std.math.absInt(mouse_wheel.y));
+                if (itemNum > @enumToInt(item)) {
+                    itemNum = blockTypeCount - 1;
+                }
+            } else {
+                itemNum = itemNum + @intCast(u8, mouse_wheel.y);
+                itemNum = itemNum % blockTypeCount;
+            }
+            item = @intToEnum(BlockType, itemNum);
         },
         else => {},
     }
@@ -520,7 +548,7 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     try bitmapFontRenderer.drawText(&flatRenderer, pos_text, vec2f32(30, 30), .{});
 
     const item_text = try std.fmt.bufPrint(&text_buf, "{}", .{std.meta.tagName(item)});
-    try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x/2, screen_size.y - 5), .{
+    try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x / 2, screen_size.y - 5), .{
         .textAlign = .Center,
         .textBaseline = .Bottom,
     });
