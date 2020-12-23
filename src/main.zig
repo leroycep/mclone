@@ -49,6 +49,7 @@ const Input = struct {
     backward: f64 = 0,
     up: f64 = 0,
     down: f64 = 0,
+    equipped_item: usize = 0,
     breaking: ?math.Vec(3, i64) = null,
     placing: ?struct {
         pos: math.Vec(3, i64),
@@ -57,15 +58,25 @@ const Input = struct {
     } = null,
 };
 var input = Input{};
-var item: BlockType = .Stone;
+// var item: BlockType = .Stone;
 var mouse_captured: bool = true;
 var camera_angle = vec2f(0, 0);
 var texture1: gl.GLuint = undefined;
 var texture2: gl.GLuint = undefined;
 var cursor_texture: Texture = undefined;
 
-var previous_player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
-var player_state = core.player.State{ .position = vec3f(0, 0, 0), .lookAngle = vec2f(0, 0), .velocity = vec3f(0, 0, 0) };
+var previous_player_state = core.player.State{
+    .position = vec3f(0, 0, 0),
+    .lookAngle = vec2f(0, 0),
+    .velocity = vec3f(0, 0, 0),
+    .inventory = core.player.Inventory(40).init(),
+};
+var player_state = core.player.State{
+    .position = vec3f(0, 0, 0),
+    .lookAngle = vec2f(0, 0),
+    .velocity = vec3f(0, 0, 0),
+    .inventory = core.player.Inventory(40).init(),
+};
 var other_player_states: std.AutoHashMap(u64, core.player.State) = undefined;
 
 var chunks_requested: std.ArrayList(math.Vec(3, i64)) = undefined;
@@ -210,29 +221,30 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 mouse_captured = !mouse_captured;
                 try context.setRelativeMouseMode(mouse_captured);
             },
-            ._0 => item = .Stone,
-            ._1 => item = .Dirt,
-            ._2 => item = .Grass,
-            ._3 => item = .SignalInverter,
-            ._4 => item = .Leaf,
-            ._5 => item = .CoalOre,
-            ._6 => item = .IronOre,
-            ._7 => item = .Torch,
-            ._8 => item = .Wire,
-            ._9 => item = .SignalSource,
+            ._0 => input.equipped_item = 9,
+            ._1 => input.equipped_item = 0,
+            ._2 => input.equipped_item = 1,
+            ._3 => input.equipped_item = 2,
+            ._4 => input.equipped_item = 3,
+            ._5 => input.equipped_item = 4,
+            ._6 => input.equipped_item = 5,
+            ._7 => input.equipped_item = 6,
+            ._8 => input.equipped_item = 7,
+            ._9 => input.equipped_item = 8,
             .EQUALS => if (event == .KeyDown) {
-                const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
-                var itemNum = @enumToInt(item) + 1;
-                itemNum = itemNum % blockTypeCount;
-                item = @intToEnum(BlockType, itemNum);
+                input.equipped_item += 1;
+                input.equipped_item = input.equipped_item % 10;
+                // const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
+                // var itemNum = @enumToInt(item) + 1;
+                // itemNum = itemNum % blockTypeCount;
+                // item = @intToEnum(BlockType, itemNum);
             },
             .MINUS => if (event == .KeyDown) {
-                const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
-                var itemNum = @enumToInt(item) -% 1;
-                if (itemNum > @enumToInt(item)) {
-                    itemNum = blockTypeCount - 1;
+                if (input.equipped_item > 0) {
+                    input.equipped_item -= 1;
+                } else {
+                    input.equipped_item = 9;
                 }
-                item = @intToEnum(BlockType, itemNum);
             },
             else => {},
         },
@@ -270,28 +282,30 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
                 }
             },
             .Right => {
-                if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
-                    if (raycast.prev) |block_pos| {
-                        if (item == .Wood) {
-                            const orient = core.block.Orientation.init;
-                            const orientation = switch (raycast.side.?) {
-                                .Top => orient(2, 0, 0),
-                                .Bottom => orient(0, 0, 0),
-                                .North => orient(1, 0, 0),
-                                .East => orient(1, 1, 0),
-                                .South => orient(3, 0, 0),
-                                .West => orient(3, 1, 0),
-                            };
-                            input.placing = .{
-                                .pos = block_pos,
-                                .block = item,
-                                .data = orientation.toU6(),
-                            };
-                        } else {
-                            input.placing = .{
-                                .pos = block_pos,
-                                .block = item,
-                            };
+                if (player_state.inventory.getItem(input.equipped_item)) |item| {
+                    if (worldRenderer.world.raycast(player_state.position, camera_angle, 5)) |raycast| {
+                        if (raycast.prev) |block_pos| {
+                            if (item == .Wood) {
+                                const orient = core.block.Orientation.init;
+                                const orientation = switch (raycast.side.?) {
+                                    .Top => orient(2, 0, 0),
+                                    .Bottom => orient(0, 0, 0),
+                                    .North => orient(1, 0, 0),
+                                    .East => orient(1, 1, 0),
+                                    .South => orient(3, 0, 0),
+                                    .West => orient(3, 1, 0),
+                                };
+                                input.placing = .{
+                                    .pos = block_pos,
+                                    .block = item,
+                                    .data = orientation.toU6(),
+                                };
+                            } else {
+                                input.placing = .{
+                                    .pos = block_pos,
+                                    .block = item,
+                                };
+                            }
                         }
                     }
                 }
@@ -299,18 +313,18 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             else => {},
         },
         .MouseWheel => |mouse_wheel| {
-            const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
-            var itemNum = @enumToInt(item);
-            if (mouse_wheel.y < 0) {
-                itemNum = itemNum -% @intCast(u8, try std.math.absInt(mouse_wheel.y));
-                if (itemNum > @enumToInt(item)) {
-                    itemNum = blockTypeCount - 1;
-                }
-            } else {
-                itemNum = itemNum + @intCast(u8, mouse_wheel.y);
-                itemNum = itemNum % blockTypeCount;
-            }
-            item = @intToEnum(BlockType, itemNum);
+            // const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
+            // var itemNum = @enumToInt(item);
+            // if (mouse_wheel.y < 0) {
+            //     itemNum = itemNum -% @intCast(u8, try std.math.absInt(mouse_wheel.y));
+            //     if (itemNum > @enumToInt(item)) {
+            //         itemNum = blockTypeCount - 1;
+            //     }
+            // } else {
+            //     itemNum = itemNum + @intCast(u8, mouse_wheel.y);
+            //     itemNum = itemNum % blockTypeCount;
+            // }
+            // item = @intToEnum(BlockType, itemNum);
         },
         else => {},
     }
@@ -394,6 +408,12 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
             const gop = other_player_states.getOrPut(update_data.id) catch return;
             gop.entry.value = update_data.state;
         },
+        .InventoryUpdate => |inventory_update_data| if (inventory_update_data.id == client_id) {
+            player_state.inventory = inventory_update_data.inventory;
+        } else {
+            const gop = other_player_states.getOrPut(inventory_update_data.id) catch return;
+            gop.entry.value.inventory = inventory_update_data.inventory;
+        },
         .ChunkUpdate => |chunk_update| {
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
             for (chunks_requested.items) |requested_pos, idx| {
@@ -434,6 +454,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .jump = input.up > 0,
         .crouch = input.down > 0,
         .lookAngle = camera_angle,
+        .equipped_item = input.equipped_item,
         .breaking = input.breaking,
         .placing = if (input.placing) |placing|
             .{
@@ -547,11 +568,17 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const pos_text = try std.fmt.bufPrint(&text_buf, "{d:.02}", .{player_state.position});
     try bitmapFontRenderer.drawText(&flatRenderer, pos_text, vec2f32(30, 30), .{});
 
-    const item_text = try std.fmt.bufPrint(&text_buf, "{}", .{std.meta.tagName(item)});
-    try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x / 2, screen_size.y - 5), .{
-        .textAlign = .Center,
-        .textBaseline = .Bottom,
-    });
+    if (player_state.inventory.getItem(input.equipped_item)) |item| {
+        var count: usize = 0;
+        if (player_state.inventory.stacks[input.equipped_item]) |inv| {
+            count = inv.count;
+        }
+        const item_text = try std.fmt.bufPrint(&text_buf, "({}) {}", .{ count, std.meta.tagName(item) });
+        try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x / 2, screen_size.y - 5), .{
+            .textAlign = .Center,
+            .textBaseline = .Bottom,
+        });
+    }
 
     flatRenderer.flush();
 }

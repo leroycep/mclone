@@ -30,6 +30,10 @@ pub const ServerDatagram = union(enum) {
         time: f64,
         state: player.State,
     },
+    InventoryUpdate: struct {
+        id: u64,
+        inventory: player.Inventory(40),
+    },
     // TODO: Move this to reliable packet once that distinction exists
     ChunkUpdate: struct {
         pos: math.Vec(3, i64),

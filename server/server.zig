@@ -120,6 +120,7 @@ pub fn main() !void {
                         .position = .{ .x = 7 * 16 + 7, .y = 8 * 16, .z = 7 * 16 + 7 },
                         .velocity = .{ .x = 0, .y = 0, .z = 0 },
                         .lookAngle = .{ .x = 0, .y = 0 },
+                        .inventory = core.player.Inventory(40).init(),
                     },
                 };
                 next_id += 1;
@@ -188,12 +189,35 @@ pub fn main() !void {
                                 });
 
                                 if (update.input.breaking) |block_pos| {
+                                    var block = world.getv(block_pos);
+                                    if (block.blockType != .Air) {
+                                        var result = client.state.inventory.insertStack(.{
+                                            .blockType = block.blockType,
+                                            .count = 1,
+                                        });
+                                        if (result) |res| {
+                                            std.log.debug("Could not fit {} into inventory", .{res});
+                                        }
+                                    }
                                     try world.setAndUpdatev(block_pos, .{ .blockType = .Air });
                                 }
 
                                 if (update.input.placing) |placing| {
-                                    try world.setAndUpdatev(placing.pos, placing.block);
+                                    var placingBlock = client.state.inventory.removeCountAtIndex(update.input.equipped_item, 1);
+                                    if (placingBlock) |block| {
+                                        if (placing.block.blockType == block.blockType) {
+                                            std.log.debug("{}", .{client.state.inventory.stacks[update.input.equipped_item]});
+                                            try world.setAndUpdatev(placing.pos, placing.block);
+                                        }
+                                    }
                                 }
+
+                                broadcastPacket(alloc, &clients, ServerDatagram{
+                                    .InventoryUpdate = .{
+                                        .id = client.id,
+                                        .inventory = client.state.inventory,
+                                    },
+                                });
 
                                 const num_updated = world.blocks_that_were_updated.items().len;
                                 if (num_updated > 0) {

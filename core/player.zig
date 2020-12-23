@@ -6,6 +6,7 @@ const Vec3f = math.Vec(3, f64);
 const vec3f = Vec3f.init;
 const core = @import("./core.zig");
 const Block = @import("./core.zig").block.Block;
+const BlockType = @import("./core.zig").block.BlockType;
 const World = @import("./core.zig").World;
 
 const MOVE_SPEED = 4.5;
@@ -31,21 +32,115 @@ pub const Input = struct {
     /// The angle that the player looking
     lookAngle: Vec2f,
 
+    /// The currently equipped item
+    equipped_item: usize,
+
     /// The block that the player is breaking
     breaking: ?math.Vec(3, i64),
 
-    /// The block the player is placing
+    /// Where the player is placing
     placing: ?struct {
         pos: math.Vec(3, i64),
         block: Block,
     },
 };
 
+const Stack = struct {
+    blockType: BlockType,
+    count: usize,
+};
+
+pub fn Inventory(comptime size: usize) type {
+    return struct {
+        stacks: [size]?Stack,
+
+        pub fn init() @This() {
+            var stacks: [size]?Stack = undefined;
+            stacks[0] = Stack{
+                .blockType = .Stone,
+                .count = 64,
+            };
+            var i: usize = 1;
+            while (i < size) : (i += 1) {
+                stacks[i] = null;
+            }
+            return @This(){
+                .stacks = stacks,
+            };
+        }
+
+        pub fn getItem(this: *@This(), index: usize) ?BlockType {
+            if (this.stacks[index]) |stack| {
+                return stack.blockType;
+            }
+            return null;
+        }
+
+        pub fn removeStackAtIndex(this: *@This(), index: usize) ?Stack {
+            if (this.stacks[index]) |stack| {
+                this.stacks[index] = null;
+                return stack;
+            }
+            return null;
+        }
+
+        pub fn removeCountAtIndex(this: *@This(), index: usize, count: usize) ?Stack {
+            if (this.stacks[index]) |stack| {
+                if (stack.count >= count) {
+                    var new_stack = Stack{ .blockType = stack.blockType, .count = stack.count - count };
+                    if (new_stack.count == 0) {
+                        this.stacks[index] = null;
+                    } else {
+                        this.stacks[index] = new_stack;
+                    }
+                    return Stack{
+                        .blockType = stack.blockType,
+                        .count = count,
+                    };
+                }
+            }
+            return null;
+        }
+
+        pub fn insertStack(this: *@This(), insstack: Stack) ?Stack {
+            var available: ?usize = null;
+            var istack = insstack;
+            for (this.stacks) |stackOpt, i| {
+                if (stackOpt == null) {
+                    if (available == null) available = i;
+                }
+                if (stackOpt) |stack| {
+                    var new_stack = Stack{ .blockType = stack.blockType, .count = stack.count };
+                    defer this.stacks[i] = new_stack;
+                    if (stack.blockType == istack.blockType) {
+                        if (stack.count + istack.count < 64) {
+                            new_stack.count += istack.count;
+                            return null;
+                        } else if (stack.count < 64) {
+                            var count = 64 - stack.count;
+                            new_stack.count = 64;
+                            istack.count -= count;
+                        }
+                    }
+                }
+            }
+
+            if (available) |i| {
+                this.stacks[i] = istack;
+                return null;
+            } else {
+                return istack;
+            }
+        }
+    };
+}
+
 pub const State = struct {
     position: Vec3f,
     velocity: Vec3f,
     lookAngle: Vec2f,
     onGround: bool = false,
+    inventory: Inventory(40),
 
     pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, world: *World) void {
         this.lookAngle = input.lookAngle;
