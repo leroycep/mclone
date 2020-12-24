@@ -22,6 +22,7 @@ const WorldRenderer = @import("./world_render.zig").WorldRenderer;
 const LineRenderer = @import("./line_render.zig").LineRenderer;
 const FlatRenderer = @import("./flat_render.zig").FlatRenderer;
 const BitmapFontRenderer = @import("./font_render.zig").BitmapFontRenderer;
+const HudRenderer = @import("./hud_render.zig").HudRenderer;
 const ArrayList = std.ArrayList;
 const RGB = util.color.RGB;
 const RGBA = util.color.RGBA;
@@ -37,26 +38,13 @@ var worldRenderer: WorldRenderer = undefined;
 var lineRenderer: LineRenderer = undefined;
 var flatRenderer: FlatRenderer = undefined;
 var bitmapFontRenderer: BitmapFontRenderer = undefined;
+var hudRenderer: HudRenderer = undefined;
 var tilesetTex: gl.GLuint = undefined;
 
 var socket: *net.FramesSocket = undefined;
 var client_id: u64 = undefined;
 
-const Input = struct {
-    left: f64 = 0,
-    right: f64 = 0,
-    forward: f64 = 0,
-    backward: f64 = 0,
-    up: f64 = 0,
-    down: f64 = 0,
-    equipped_item: usize = 0,
-    breaking: ?math.Vec(3, i64) = null,
-    placing: ?struct {
-        pos: math.Vec(3, i64),
-        block: BlockType,
-        data: u16 = 0,
-    } = null,
-};
+const Input = @import("./input.zig").Input;
 var input = Input{};
 // var item: BlockType = .Stone;
 var mouse_captured: bool = true;
@@ -126,12 +114,7 @@ pub fn onInit(context: *platform.Context) !void {
     });
     worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
-    flatRenderer = try FlatRenderer.init(context.alloc, vec2f32(640, 480));
-    bitmapFontRenderer = try BitmapFontRenderer.initFromFile(context.alloc, "assets/PressStart2P_8.fnt");
-
-    texture1 = try glUtil.loadTexture(context.alloc, "assets/grass-side.png");
-    texture2 = try glUtil.loadTexture(context.alloc, "assets/stone.png");
-    cursor_texture = try Texture.initFromFile(context.alloc, "assets/cursor.png");
+    hudRenderer = try HudRenderer.init(context.alloc);
 
     try context.setRelativeMouseMode(true);
 
@@ -149,8 +132,7 @@ pub fn onInit(context: *platform.Context) !void {
 fn onDeinit(context: *platform.Context) void {
     worldRenderer.deinit();
     lineRenderer.deinit();
-    flatRenderer.deinit();
-    bitmapFontRenderer.deinit();
+    hudRenderer.deinit();
     moves.deinit();
     other_player_states.deinit();
     socket.deinit();
@@ -554,31 +536,12 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     gl.enable(gl.POLYGON_OFFSET_FILL);
 
     gl.polygonOffset(1, 0.25);
-    try flatRenderer.setSize(screen_size);
 
     // Clear the screen
     worldRenderer.render(context, projection, daytime);
     lineRenderer.render(context, projection, &other_player_states, worldRenderer.world.raycast(render_pos, camera_angle, 5));
-    const cursor_size = cursor_texture.size.intToFloat(f32).scale(1.1);
-    const cursor_pos = screen_size.scaleDiv(2).subv(cursor_size.scaleDiv(2));
-    try flatRenderer.drawTexture(cursor_texture, cursor_pos, cursor_size);
 
-    var text_buf: [1024]u8 = undefined;
-
-    const pos_text = try std.fmt.bufPrint(&text_buf, "{d:.02}", .{player_state.position});
-    try bitmapFontRenderer.drawText(&flatRenderer, pos_text, vec2f32(30, 30), .{});
-
-    if (player_state.inventory.getItem(input.equipped_item)) |item| {
-        var count: usize = 0;
-        if (player_state.inventory.stacks[input.equipped_item]) |inv| {
-            count = inv.count;
-        }
-        const item_text = try std.fmt.bufPrint(&text_buf, "({}) {}", .{ count, std.meta.tagName(item) });
-        try bitmapFontRenderer.drawText(&flatRenderer, item_text, vec2f32(screen_size.x / 2, screen_size.y - 5), .{
-            .textAlign = .Center,
-            .textBaseline = .Bottom,
-        });
-    }
+    try hudRenderer.render(context, &player_state, &input);
 
     flatRenderer.flush();
 }
