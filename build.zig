@@ -4,34 +4,23 @@ const Builder = std.build.Builder;
 const sep_str = std.fs.path.sep_str;
 const Cpu = std.Target.Cpu;
 const Pkg = std.build.Pkg;
+const deps = @import("./deps.zig");
 
 const SITE_DIR = "www";
-const MATH = std.build.Pkg{
-    .name = "math",
-    .path = "./zigmath/math.zig",
-};
 const PLATFORM = std.build.Pkg{
     .name = "platform",
     .path = "./platform/platform.zig",
-    .dependencies = &[_]Pkg{ MATH, ZIGIMG },
+    .dependencies = &[_]Pkg{ deps.pkgs.math, deps.pkgs.zigimg },
 };
 const UTIL = std.build.Pkg{
     .name = "util",
     .path = "./util/util.zig",
-    .dependencies = &[_]Pkg{MATH},
-};
-const BARE = std.build.Pkg{
-    .name = "bare",
-    .path = "./zig-bare/src/bare.zig",
+    .dependencies = &[_]Pkg{deps.pkgs.math},
 };
 const CORE = std.build.Pkg{
     .name = "core",
     .path = "./core/core.zig",
-    .dependencies = &[_]Pkg{ UTIL, MATH, BARE },
-};
-const ZIGIMG = std.build.Pkg{
-    .name = "zigimg",
-    .path = "zigimg/zigimg.zig",
+    .dependencies = &[_]Pkg{ UTIL, deps.pkgs.math, deps.pkgs.bare },
 };
 
 pub fn build(b: *Builder) void {
@@ -51,11 +40,10 @@ pub fn build(b: *Builder) void {
     }
 
     const native = b.addExecutable("mclone", "src/main.zig");
+    deps.addAllTo(native);
     native.addPackage(UTIL);
     native.addPackage(CORE);
-    native.addPackage(MATH);
     native.addPackage(PLATFORM);
-    native.addPackage(ZIGIMG);
     native.linkSystemLibrary("SDL2");
     native.linkLibC();
     native.setTarget(target);
@@ -67,7 +55,7 @@ pub fn build(b: *Builder) void {
     const server = b.addExecutable("mclone-server", "server/server.zig");
     server.addPackage(UTIL);
     server.addPackage(CORE);
-    server.addPackage(MATH);
+    server.addPackage(deps.pkgs.math);
     server.setTarget(target);
     server.setBuildMode(mode);
     server.install();
@@ -91,7 +79,7 @@ pub fn build(b: *Builder) void {
     const wasm = b.addStaticLibrary("mclone-web", "src/main.zig");
     wasm.addPackage(CORE);
     wasm.addPackage(UTIL);
-    wasm.addPackage(MATH);
+    wasm.addPackage(deps.pkgs.math);
     wasm.addPackage(PLATFORM);
     wasm.step.dependOn(&b.addExecutable("webgl_generate", "platform/web/tool_webgl_generate.zig").run().step);
     const wasmOutDir = b.fmt("{}" ++ sep_str ++ SITE_DIR, .{b.install_prefix});

@@ -1,3 +1,4 @@
 zig-cache/
 platform/web/webgl_generated.zig
 platform/web/webgl.js
+deps.zig
