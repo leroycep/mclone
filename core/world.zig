@@ -25,7 +25,7 @@ const ADJACENT_OFFSETS = [_]Vec3i{
 };
 
 pub const World = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     chunks: std.AutoHashMap(Vec3i, Chunk),
     blocks_to_update: ArrayDeque(Vec3i),
     blocks_that_were_updated: std.AutoArrayHashMap(Vec3i, void),
@@ -39,7 +39,7 @@ pub const World = struct {
         side: ?Side,
     };
 
-    pub fn init(allocator: *std.mem.Allocator) !@This() {
+    pub fn init(allocator: std.mem.Allocator) !@This() {
         return @This(){
             .allocator = allocator,
             .chunks = std.AutoHashMap(Vec3i, Chunk).init(allocator),
@@ -212,7 +212,7 @@ pub const World = struct {
         const chunkPos = globalPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
-            entry.value.setv(blockPos, blockType);
+            entry.value_ptr.setv(blockPos, blockType);
             this.blocks_that_were_updated.put(globalPos, {}) catch unreachable;
         } else {
             std.log.debug("Block is not in loaded chunk: {} {}", .{ globalPos, blockType });
@@ -264,7 +264,7 @@ pub const World = struct {
         if (this.chunks.getEntry(chunkPos)) |entry| {
             const blockPos = globalPos.subv(chunkPos.scale(16));
 
-            entry.value.setv(blockPos, block);
+            entry.value_ptr.setv(blockPos, block);
             try this.blocks_to_update.push_back(globalPos);
             this.blocks_that_were_updated.put(globalPos, {}) catch unreachable;
 
@@ -327,7 +327,7 @@ pub const World = struct {
 
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
-            entry.value.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
+            entry.value_ptr.setTorchlightv(blockPos.subv(chunkPos.scale(16)), lightLevel);
             this.chunks_where_light_was_updated.put(chunkPos, {}) catch unreachable;
         }
     }
@@ -538,7 +538,7 @@ pub const World = struct {
         defer lightBfsQueue.deinit();
 
         const chunkEntry = self.chunks.getEntry(chunkPos) orelse return error.ChunkUnloaded;
-        var chunk = &chunkEntry.value;
+        var chunk = chunkEntry.value_ptr;
         {
             var x: u8 = 0;
             while (x < CX) : (x += 1) {
@@ -555,7 +555,7 @@ pub const World = struct {
         const topChunkPos = chunkPos.add(0, 1, 0);
         if (self.isChunkSunlightCalculated(topChunkPos)) {
             const topChunkEntry = self.chunks.getEntry(topChunkPos) orelse return error.TopChunkUnloaded;
-            var topChunk = &topChunkEntry.value;
+            var topChunk = topChunkEntry.value_ptr;
             var x: u8 = 0;
             while (x < CX) : (x += 1) {
                 var z: u8 = 0;

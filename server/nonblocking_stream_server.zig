@@ -42,8 +42,8 @@ pub const NonblockingStreamServer = struct {
     }
 
     pub fn listen(self: *NonblockingStreamServer, address: Address) !void {
-        const sock_flags = os.SOCK_STREAM | os.SOCK_CLOEXEC | os.SOCK_NONBLOCK;
-        const proto = if (address.any.family == os.AF_UNIX) @as(u32, 0) else os.IPPROTO_TCP;
+        const sock_flags = os.SOCK.STREAM | os.SOCK.CLOEXEC | os.SOCK.NONBLOCK;
+        const proto = if (address.any.family == os.AF.UNIX) @as(u32, 0) else os.IPPROTO.TCP;
 
         const sockfd = try os.socket(address.any.family, sock_flags, proto);
         self.sockfd = sockfd;
@@ -55,8 +55,8 @@ pub const NonblockingStreamServer = struct {
         if (self.reuse_address) {
             try os.setsockopt(
                 sockfd,
-                os.SOL_SOCKET,
-                os.SO_REUSEADDR,
+                os.SOL.SOCKET,
+                os.SO.REUSEADDR,
                 &mem.toBytes(@as(c_int, 1)),
             );
         }
@@ -65,7 +65,7 @@ pub const NonblockingStreamServer = struct {
         try os.setsockopt(
             sockfd,
             SOL_TCP,
-            os.TCP_NODELAY,
+            os.TCP.NODELAY,
             &mem.toBytes(@as(c_int, 1)),
         );
 
@@ -131,7 +131,7 @@ pub const NonblockingStreamServer = struct {
     pub fn accept(self: *NonblockingStreamServer) AcceptError!Connection {
         var accepted_addr: Address = undefined;
         var adr_len: os.socklen_t = @sizeOf(Address);
-        const fd = try os.accept(self.sockfd.?, &accepted_addr.any, &adr_len, os.SOCK_CLOEXEC | os.SOCK_NONBLOCK);
+        const fd = try os.accept(self.sockfd.?, &accepted_addr.any, &adr_len, os.SOCK.CLOEXEC | os.SOCK.NONBLOCK);
 
         return Connection{
             .file = fs.File{ .handle = fd },

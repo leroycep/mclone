@@ -6,8 +6,8 @@ const Allocator = std.mem.Allocator;
 const math = @import("math");
 
 // Export the reader and writer types that both sides will need
-pub const Reader = bare.Reader;
-pub const Writer = bare.Writer;
+pub const Decoder = bare.Decoder;
+pub const Encoder = bare.Encoder;
 
 // Unreliable datagram/packet sent from the client to the server
 pub const ClientDatagram = union(enum) {
@@ -65,7 +65,7 @@ pub const Frames = union(enum) {
         return @This(){ .WaitingForSize = {} };
     }
 
-    pub fn update(this: *@This(), alloc: *Allocator, reader: anytype) !?[]u8 {
+    pub fn update(this: *@This(), alloc: Allocator, reader: anytype) !?[]u8 {
         while (true) {
             switch (this.*) {
                 .WaitingForSize => {

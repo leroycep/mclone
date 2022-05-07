@@ -89,6 +89,7 @@ export const MAX_DELTA_SECONDS = webgl.MAX_DELTA_SECONDS;
 export const TICK_DELTA_SECONDS = webgl.TICK_DELTA_SECONDS;
 
 var context: platform.Context = undefined;
+var app: platform.App = undefined;
 
 export fn onInit() void {
     const alloc = webgl.zee_alloc.ZeeAllocDefaults.wasm_allocator;

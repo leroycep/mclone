@@ -13,7 +13,7 @@ const ServerDatagram = protocol.ServerDatagram;
 const math = @import("math");
 const trace = @import("util").tracy.trace;
 
-pub const enable_tracy = @import("build_options").enable_tracy;
+pub const enable_tracy = false; // @import("build_options").enable_tracy;
 
 const MAX_CLIENTS = 2;
 
@@ -23,7 +23,7 @@ pub fn main() !void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const alloc = &gpa.allocator;
+    const alloc = gpa.allocator();
 
     const localhost = try Address.parseIp("0.0.0.0", 5949);
 
@@ -38,7 +38,7 @@ pub fn main() !void {
     defer {
         var clients_iter = clients.iterator();
         while (clients_iter.next()) |client| {
-            client.value.connection.file.close();
+            client.value_ptr.connection.file.close();
         }
 
         clients.deinit();
@@ -49,13 +49,13 @@ pub fn main() !void {
 
     try pollfds.append(.{
         .fd = server.sockfd.?,
-        .events = std.os.POLLIN,
+        .events = std.os.POLL.IN,
         .revents = undefined,
     });
 
     // Generate world
     var world = try core.World.init(alloc);
-    try world.chunks.ensureCapacity(16 * 16 * 16);
+    try world.chunks.ensureTotalCapacity(16 * 16 * 16);
 
     var pos = math.Vec(3, i64).init(0, 0, 0);
     while (pos.z < 16) {
@@ -91,7 +91,7 @@ pub fn main() !void {
             if (poll_count == 0) break;
             //std.log.debug("polls ready: {}", .{poll_count});
 
-            if (pollfd.revents & std.os.POLLIN != std.os.POLLIN) continue;
+            if (pollfd.revents & std.os.POLL.IN != std.os.POLL.IN) continue;
             poll_count -= 1;
 
             if (pollfd.fd == server.sockfd.?) {
@@ -107,7 +107,7 @@ pub fn main() !void {
 
                 try pollfds.append(.{
                     .fd = new_connection.file.handle,
-                    .events = std.os.POLLIN,
+                    .events = std.os.POLL.IN,
                     .revents = undefined,
                 });
 
@@ -140,17 +140,17 @@ pub fn main() !void {
 
                 std.log.info("{} connected", .{new_connection.address});
             } else if (clients.getEntry(pollfd.fd)) |client_entry| {
-                const client = &client_entry.value;
+                const client = client_entry.value_ptr;
                 if (client.handle()) |bare_data_opt| {
                     const bare_data = bare_data_opt orelse continue;
                     defer alloc.free(bare_data);
 
                     var fbs = std.io.fixedBufferStream(bare_data);
 
-                    var reader = core.protocol.Reader.init(alloc);
+                    var reader = core.protocol.Decoder.init(alloc);
                     defer reader.deinit();
 
-                    const packet = reader.read(ClientDatagram, fbs.reader()) catch |err| switch (err) {
+                    const packet = reader.decode(ClientDatagram, fbs.reader()) catch |err| switch (err) {
                         else => |other_err| return other_err,
                     };
 
@@ -219,15 +219,15 @@ pub fn main() !void {
                                     },
                                 });
 
-                                const num_updated = world.blocks_that_were_updated.items().len;
+                                const num_updated = world.blocks_that_were_updated.keys().len;
                                 if (num_updated > 0) {
                                     var block_update_list = std.ArrayList(protocol.BlockUpdate).init(alloc);
                                     defer block_update_list.deinit();
-                                    for (world.blocks_that_were_updated.items()) |entry| {
+                                    for (world.blocks_that_were_updated.keys()) |entry| {
                                         //try world.fillSunlight(chunk_pos);
                                         try block_update_list.append(.{
-                                            .pos = entry.key,
-                                            .block = world.getv(entry.key),
+                                            .pos = entry,
+                                            .block = world.getv(entry),
                                         });
                                     }
 
@@ -238,13 +238,13 @@ pub fn main() !void {
                                     world.blocks_that_were_updated.clearRetainingCapacity();
                                 }
 
-                                const num_light_updated = world.chunks_where_light_was_updated.items().len;
+                                const num_light_updated = world.chunks_where_light_was_updated.keys().len;
                                 if (num_light_updated > 0) {
                                     var light_update_list = std.ArrayList(protocol.LightUpdate).init(alloc);
                                     defer light_update_list.deinit();
-                                    for (world.chunks_where_light_was_updated.items()) |chunk_pos_entry| {
-                                        if (world.chunks.getEntry(chunk_pos_entry.key)) |chunk_entry| {
-                                            try chunk_entry.value.getLightDiffs(chunk_pos_entry.key, &light_update_list);
+                                    for (world.chunks_where_light_was_updated.keys()) |chunk_pos_entry| {
+                                        if (world.chunks.getEntry(chunk_pos_entry)) |chunk_entry| {
+                                            try chunk_entry.value_ptr.getLightDiffs(chunk_pos_entry, &light_update_list);
                                         }
                                     }
 
@@ -289,7 +289,7 @@ pub fn main() !void {
 }
 
 fn disconnectClient(pollfds: *ArrayList(std.os.pollfd), clients: *AutoHashMap(std.os.fd_t, Client), pollfd_idx: usize) void {
-    const client = clients.remove(pollfds.items[pollfd_idx].fd).?;
+    const client = clients.fetchRemove(pollfds.items[pollfd_idx].fd).?;
     client.value.connection.file.close();
     _ = pollfds.swapRemove(pollfd_idx);
     std.log.info("{} disconnected", .{client.value.connection.address});
@@ -298,24 +298,24 @@ fn disconnectClient(pollfds: *ArrayList(std.os.pollfd), clients: *AutoHashMap(st
 fn broadcast(clients: *AutoHashMap(std.os.fd_t, Client), message: []const u8) void {
     var clients_iter = clients.iterator();
     while (clients_iter.next()) |client| {
-        client.value.send(message) catch |e| {
+        client.value_ptr.send(message) catch |e| {
             std.log.warn("Error broadcasting to client: {}", .{e});
             continue;
         };
     }
 }
 
-fn broadcastPacket(alloc: *Allocator, clients: *AutoHashMap(std.os.fd_t, Client), data: anytype) void {
+fn broadcastPacket(alloc: Allocator, clients: *AutoHashMap(std.os.fd_t, Client), data: anytype) void {
     var serialized = ArrayList(u8).init(alloc);
     defer serialized.deinit();
 
-    core.protocol.Writer.init().write(data, serialized.writer()) catch return;
+    core.protocol.Encoder.init().encode(data, serialized.writer()) catch return;
 
     broadcast(clients, serialized.items);
 }
 
 const Client = struct {
-    alloc: *Allocator,
+    alloc: Allocator,
     connection: NonblockingStreamServer.Connection,
     frames: protocol.Frames = protocol.Frames.init(),
 
@@ -338,7 +338,7 @@ const Client = struct {
         var serialized = ArrayList(u8).init(this.alloc);
         defer serialized.deinit();
 
-        try core.protocol.Writer.init().write(data, serialized.writer());
+        try core.protocol.Encoder.init().encode(data, serialized.writer());
 
         try this.send(serialized.items);
     }

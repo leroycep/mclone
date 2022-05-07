@@ -9,18 +9,18 @@ const deps = @import("./deps.zig");
 const SITE_DIR = "www";
 const PLATFORM = std.build.Pkg{
     .name = "platform",
-    .path = .{.path = "./platform/platform.zig"},
-    .dependencies = &[_]Pkg{},
+    .path = .{ .path = "./platform/platform.zig" },
+    .dependencies = &[_]Pkg{deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
 };
 const UTIL = std.build.Pkg{
     .name = "util",
-    .path = .{.path = "./util/util.zig"},
-    .dependencies = &[_]Pkg{},
+    .path = .{ .path = "./util/util.zig" },
+    .dependencies = &[_]Pkg{deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
 };
 const CORE = std.build.Pkg{
     .name = "core",
-    .path = .{.path = "./core/core.zig"},
-    .dependencies = &[_]Pkg{ UTIL},
+    .path = .{ .path = "./core/core.zig" },
+    .dependencies = &[_]Pkg{UTIL, deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
 };
 
 pub fn build(b: *Builder) void {
@@ -79,31 +79,31 @@ pub fn build(b: *Builder) void {
 
     b.step("run", "Run the native binary").dependOn(&native.run().step);
 
-    const wasm = b.addStaticLibrary("mclone-web", "src/main.zig");
-    deps.addAllTo(wasm);
-    wasm.addPackage(CORE);
-    wasm.addPackage(UTIL);
-    wasm.addPackage(PLATFORM);
-    wasm.step.dependOn(&b.addExecutable("webgl_generate", "platform/web/tool_webgl_generate.zig").run().step);
-    const wasmOutDir = b.fmt("{s}" ++ sep_str ++ SITE_DIR, .{b.install_prefix});
-    wasm.setOutputDir(wasmOutDir);
-    wasm.setBuildMode(b.standardReleaseOptions());
-    wasm.setTarget(.{
-        .cpu_arch = .wasm32,
-        .os_tag = .freestanding,
-    });
+    // const wasm = b.addStaticLibrary("mclone-web", "src/main.zig");
+    // deps.addAllTo(wasm);
+    // wasm.addPackage(CORE);
+    // wasm.addPackage(UTIL);
+    // wasm.addPackage(PLATFORM);
+    // wasm.step.dependOn(&b.addExecutable("webgl_generate", "platform/web/tool_webgl_generate.zig").run().step);
+    // const wasmOutDir = b.fmt("{s}" ++ sep_str ++ SITE_DIR, .{b.install_prefix});
+    // wasm.setOutputDir(wasmOutDir);
+    // wasm.setBuildMode(b.standardReleaseOptions());
+    // wasm.setTarget(.{
+    //     .cpu_arch = .wasm32,
+    //     .os_tag = .freestanding,
+    // });
 
-    const htmlInstall = b.addInstallFile(.{.path = "./index.html"}, SITE_DIR ++ sep_str ++ "index.html");
-    const cssInstall = b.addInstallFile(.{.path = "./index.css"}, SITE_DIR ++ sep_str ++ "index.css");
-    const webglJsInstall = b.addInstallFile(.{.path = "platform/web/webgl.js"}, SITE_DIR ++ sep_str ++ "webgl.js");
-    const mainJsInstall = b.addInstallFile(.{.path = "platform/web/main.js"}, SITE_DIR ++ sep_str ++ "main.js");
+    // const htmlInstall = b.addInstallFile(.{.path = "./index.html"}, SITE_DIR ++ sep_str ++ "index.html");
+    // const cssInstall = b.addInstallFile(.{.path = "./index.css"}, SITE_DIR ++ sep_str ++ "index.css");
+    // const webglJsInstall = b.addInstallFile(.{.path = "platform/web/webgl.js"}, SITE_DIR ++ sep_str ++ "webgl.js");
+    // const mainJsInstall = b.addInstallFile(.{.path = "platform/web/main.js"}, SITE_DIR ++ sep_str ++ "main.js");
 
-    wasm.step.dependOn(&htmlInstall.step);
-    wasm.step.dependOn(&cssInstall.step);
-    wasm.step.dependOn(&webglJsInstall.step);
-    wasm.step.dependOn(&mainJsInstall.step);
+    // wasm.step.dependOn(&htmlInstall.step);
+    // wasm.step.dependOn(&cssInstall.step);
+    // wasm.step.dependOn(&webglJsInstall.step);
+    // wasm.step.dependOn(&mainJsInstall.step);
 
-    b.step("wasm", "Build WASM binary").dependOn(&wasm.step);
+    // b.step("wasm", "Build WASM binary").dependOn(&wasm.step);
 
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&tests.step);
@@ -113,6 +113,6 @@ pub fn build(b: *Builder) void {
     const all = b.step("all", "Build all binaries");
     all.dependOn(&native.step);
     all.dependOn(&server.step);
-    all.dependOn(&wasm.step);
+    // all.dependOn(&wasm.step);
     all.dependOn(&tests.step);
 }

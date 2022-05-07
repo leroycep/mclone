@@ -146,8 +146,8 @@ pub const State = struct {
         _ = currentTime;
         this.lookAngle = input.lookAngle;
 
-        const forward = vec3f(std.math.sin(this.lookAngle.x), 0, std.math.cos(this.lookAngle.x));
-        const right = vec3f(-std.math.cos(this.lookAngle.x), 0, std.math.sin(this.lookAngle.x));
+        const forward = vec3f(@sin(this.lookAngle.x), 0, @cos(this.lookAngle.x));
+        const right = vec3f(-@cos(this.lookAngle.x), 0, @sin(this.lookAngle.x));
         // const lookat = vec3f(std.math.sin(this.lookAngle.x) * std.math.cos(this.lookAngle.y), std.math.sin(this.lookAngle.y), std.math.cos(this.lookAngle.x) * std.math.cos(this.lookAngle.y));
         // const up = vec3f(0, 1, 0);
 

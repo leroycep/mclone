@@ -4,12 +4,12 @@ const assert = std.debug.assert;
 /// Provides FIFO (First-In First-Out) queue. `push` and `pop` are O(1) amortized.
 pub fn ArrayDeque(comptime T: type) type {
     return struct {
-        alloc: *std.mem.Allocator,
+        alloc: std.mem.Allocator,
         buffer: []T,
         head: usize,
         tail: usize,
 
-        pub fn init(alloc: *std.mem.Allocator) @This() {
+        pub fn init(alloc: std.mem.Allocator) @This() {
             return .{
                 .alloc = alloc,
                 .buffer = &[0]T{},
