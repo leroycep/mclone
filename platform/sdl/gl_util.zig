@@ -7,7 +7,7 @@ pub fn shaderSource(shader: gl.GLuint, source: []const u8) void {
     gl.shaderSource(shader, 1, &source.ptr, &@intCast(c_int, source.len));
 }
 
-pub fn compileShader(allocator: *std.mem.Allocator, vertex_source: [:0]const u8, fragment_source: [:0]const u8) !gl.GLuint {
+pub fn compileShader(allocator: std.mem.Allocator, vertex_source: [:0]const u8, fragment_source: [:0]const u8) !gl.GLuint {
     var vertex_shader = try compilerShaderPart(allocator, gl.VERTEX_SHADER, vertex_source);
     defer gl.deleteShader(vertex_shader);
 
@@ -39,7 +39,7 @@ pub fn compileShader(allocator: *std.mem.Allocator, vertex_source: [:0]const u8,
 
         gl.getProgramInfoLog(program, @intCast(c_int, info_log.len), null, info_log.ptr);
 
-        std.log.info("failed to compile shader:\n{}", .{info_log});
+        std.log.info("failed to compile shader:\n{s}", .{info_log});
 
         return error.InvalidShader;
     }
@@ -47,7 +47,7 @@ pub fn compileShader(allocator: *std.mem.Allocator, vertex_source: [:0]const u8,
     return program;
 }
 
-pub fn compilerShaderPart(allocator: *std.mem.Allocator, shader_type: gl.GLenum, source: [:0]const u8) !gl.GLuint {
+pub fn compilerShaderPart(allocator: std.mem.Allocator, shader_type: gl.GLenum, source: [:0]const u8) !gl.GLuint {
     var shader = gl.createShader(shader_type);
     if (shader == 0)
         return error.OpenGlFailure;
@@ -72,7 +72,7 @@ pub fn compilerShaderPart(allocator: *std.mem.Allocator, shader_type: gl.GLenum,
 
         gl.getShaderInfoLog(shader, @intCast(c_int, info_log.len), null, info_log.ptr);
 
-        std.log.info("failed to compile shader:\n{}", .{info_log});
+        std.log.info("failed to compile shader:\n{s}", .{info_log});
 
         return error.InvalidShader;
     }
@@ -80,7 +80,7 @@ pub fn compilerShaderPart(allocator: *std.mem.Allocator, shader_type: gl.GLenum,
     return shader;
 }
 
-pub fn loadTexture(alloc: *std.mem.Allocator, filePath: []const u8) !gl.GLuint {
+pub fn loadTexture(alloc: std.mem.Allocator, filePath: []const u8) !gl.GLuint {
     const cwd = std.fs.cwd();
     const image_contents = try cwd.readFileAlloc(alloc, filePath, 500000);
     defer alloc.free(image_contents);

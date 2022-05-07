@@ -18,7 +18,7 @@ const Vertex = extern struct {
 };
 
 pub const FlatRenderer = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     program: gl.GLuint,
     vertex_array_object: gl.GLuint,
     vertex_buffer_object: gl.GLuint,
@@ -29,7 +29,7 @@ pub const FlatRenderer = struct {
     texture: gl.GLuint,
 
     /// Font should be the name of the font texture and csv minus their extensions
-    pub fn init(allocator: *std.mem.Allocator, screenSize: Vec2f) !@This() {
+    pub fn init(allocator: std.mem.Allocator, screenSize: Vec2f) !@This() {
         const program = try glUtil.compileShader(
             allocator,
             @embedFile("flat_render.vert"),

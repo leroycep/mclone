@@ -16,13 +16,13 @@ pub const net = @import("./net.zig");
 const Vec2i = @import("math").Vec2i;
 const vec2i = @import("math").vec2i;
 
-pub const warn = std.debug.warn;
+pub const warn = std.log.warn;
 
 const log = std.log.scoped(.PlatformNative);
 
 pub const Context = struct {
     // Standard struct members
-    alloc: *std.mem.Allocator,
+    alloc: std.mem.Allocator,
     running: bool = true,
 
     // SDL backend specific
@@ -37,7 +37,7 @@ pub const Context = struct {
 
     pub fn setRelativeMouseMode(this: *@This(), val: bool) !void {
         _ = this;
-        const res = c.SDL_SetRelativeMouseMode(if (val) .SDL_TRUE else .SDL_FALSE);
+        const res = c.SDL_SetRelativeMouseMode(if (val) c.SDL_TRUE else c.SDL_FALSE);
         if (res != 0) {
             return logSDLErr(error.CouldntSetRelativeMouseMode);
         }
@@ -52,7 +52,7 @@ fn get_proc_address(_: u8, proc: [:0]const u8) ?*anyopaque {
 pub fn run(app: App) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const alloc = &gpa.allocator;
+    const alloc = gpa.allocator();
 
     // Init SDL
     if (c.SDL_Init(c.SDL_INIT_VIDEO | c.SDL_INIT_AUDIO) != 0) {
@@ -60,10 +60,10 @@ pub fn run(app: App) !void {
     }
     defer c.SDL_Quit();
 
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_MINOR_VERSION, 0));
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_ES));
-    sdlAssertZero(c.SDL_GL_SetAttribute(.SDL_GL_DOUBLEBUFFER, 1));
+    sdlAssertZero(c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+    sdlAssertZero(c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_MINOR_VERSION, 0));
+    sdlAssertZero(c.SDL_GL_SetAttribute(c.SDL_GL_CONTEXT_PROFILE_MASK, c.SDL_GL_CONTEXT_PROFILE_ES));
+    sdlAssertZero(c.SDL_GL_SetAttribute(c.SDL_GL_DOUBLEBUFFER, 1));
 
     const screenWidth = app.window.width orelse 640;
     const screenHeight = app.window.width orelse 480;
@@ -158,7 +158,7 @@ pub const Error = error{
 };
 
 pub fn logSDLErr(err: Error) Error {
-    std.debug.warn("{}: {}\n", .{ err, @as([*:0]const u8, c.SDL_GetError()) });
+    warn("{}: {s}\n", .{ err, @as([*:0]const u8, c.SDL_GetError()) });
     return err;
 }
 
@@ -266,7 +266,7 @@ pub fn sdlToCommonEvent(sdlEvent: c.SDL_Event) ?Event {
         c.SDL_AUDIODEVICEADDED => return null,
         c.SDL_AUDIODEVICEREMOVED => return null,
 
-        else => std.debug.warn("unknown event {}\n", .{sdlEvent.@"type"}),
+        else => log.warn("unknown event {}\n", .{sdlEvent.@"type"}),
     }
     return null;
 }
@@ -283,7 +283,7 @@ fn sdlToCommonButton(btn: u8) MouseButton {
 }
 
 fn sdlToCommonScancode(scn: c.SDL_Scancode) Scancode {
-    switch (@enumToInt(scn)) {
+    switch (scn) {
         c.SDL_SCANCODE_UNKNOWN => return .UNKNOWN,
         c.SDL_SCANCODE_A => return .A,
         c.SDL_SCANCODE_B => return .B,

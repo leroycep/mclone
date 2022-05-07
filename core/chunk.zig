@@ -136,7 +136,7 @@ pub const Chunk = struct {
             vec.z >= 0 and vec.z < CZ);
     }
 
-    pub fn fillSunlight(self: *@This(), alloc: *std.mem.Allocator) !void {
+    pub fn fillSunlight(self: *@This(), alloc: std.mem.Allocator) !void {
         const block = @import("./block.zig");
         var lightBfsQueue = @import("util").ArrayDeque(Vec3i).init(alloc);
         defer lightBfsQueue.deinit();
@@ -222,9 +222,9 @@ pub const Chunk = struct {
 
     pub fn raycast(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?math.Vec(3, u8) {
         const lookat = vec3f(
-            std.math.sin(angle.x) * std.math.cos(angle.y),
-            std.math.sin(angle.y),
-            std.math.cos(angle.x) * std.math.cos(angle.y),
+            @sin(angle.x) * @cos(angle.y),
+            @sin(angle.y),
+            @cos(angle.x) * @cos(angle.y),
         );
         const start = origin;
         const end = origin.addv(lookat.scale(max_len));
@@ -249,9 +249,9 @@ pub const Chunk = struct {
 
     pub fn raycastLastEmpty(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?math.Vec(3, u8) {
         const lookat = vec3f(
-            std.math.sin(angle.x) * std.math.cos(angle.y),
-            std.math.sin(angle.y),
-            std.math.cos(angle.x) * std.math.cos(angle.y),
+            @sin(angle.x) * @cos(angle.y),
+            @sin(angle.y),
+            @cos(angle.x) * @cos(angle.y),
         );
         const start = origin;
         const end = origin.addv(lookat.scale(max_len));

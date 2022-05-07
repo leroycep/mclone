@@ -29,7 +29,7 @@ const zigimg = @import("zigimg");
 const net = platform.net;
 const Texture = @import("./texture.zig").Texture;
 
-const DEG_TO_RAD = std.math.pi / 180.0;
+const DEG_TO_RAD = pi / 180.0;
 
 var daytime: u32 = 0;
 
@@ -139,7 +139,7 @@ fn onDeinit(context: *platform.Context) void {
     chunks_requested.deinit();
 }
 
-fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !gl.GLuint {
+fn loadTileset(alloc: std.mem.Allocator, filepaths: []const []const u8) !gl.GLuint {
     var texture: gl.GLuint = undefined;
     gl.genTextures(1, &texture);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
@@ -158,7 +158,7 @@ fn loadTileset(alloc: *std.mem.Allocator, filepaths: []const []const u8) !gl.GLu
     return texture;
 }
 
-fn loadTile(alloc: *std.mem.Allocator, layer: gl.GLint, filepath: []const u8) !void {
+fn loadTile(alloc: std.mem.Allocator, layer: gl.GLint, filepath: []const u8) !void {
     const cwd = std.fs.cwd();
     const image_contents = try cwd.readFileAlloc(alloc, filepath, 50000);
     defer alloc.free(image_contents);
@@ -234,14 +234,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             if (!mouse_captured) return;
             const MOUSE_SPEED = 0.005;
             camera_angle = camera_angle.subv(mouse_move.rel.intToFloat(f64).scale(MOUSE_SPEED));
-            if (camera_angle.x < -std.math.pi)
-                camera_angle.x += std.math.pi * 2.0;
-            if (camera_angle.x > std.math.pi)
-                camera_angle.x -= std.math.pi * 2.0;
-            if (camera_angle.y < -std.math.pi / 2.0)
-                camera_angle.y = -std.math.pi / 2.0;
-            if (camera_angle.y > std.math.pi / 2.0)
-                camera_angle.y = std.math.pi / 2.0;
+            if (camera_angle.x < -pi)
+                camera_angle.x += pi * 2.0;
+            if (camera_angle.x > pi)
+                camera_angle.x -= pi * 2.0;
+            if (camera_angle.y < -pi / 2.0)
+                camera_angle.y = -pi / 2.0;
+            if (camera_angle.y > pi / 2.0)
+                camera_angle.y = pi / 2.0;
         },
         .MouseButtonDown => |click| switch (click.button) {
             .Left => {
@@ -318,10 +318,10 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
     _ = user_data;
     var fbs = std.io.fixedBufferStream(message);
 
-    var reader = core.protocol.Reader.init(socket.alloc);
-    defer reader.deinit();
+    var decoder = core.protocol.Decoder.init(socket.alloc);
+    defer decoder.deinit();
 
-    const packet = reader.read(core.protocol.ServerDatagram, fbs.reader()) catch {
+    const packet = decoder.decode(core.protocol.ServerDatagram, fbs.reader()) catch {
         std.log.err("Could not read packet", .{});
         return;
     };
@@ -391,13 +391,13 @@ fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []cons
         } else {
             // TODO: Integrate other clients with client side state prediction
             const gop = other_player_states.getOrPut(update_data.id) catch return;
-            gop.entry.value = update_data.state;
+            gop.value_ptr.* = update_data.state;
         },
         .InventoryUpdate => |inventory_update_data| if (inventory_update_data.id == client_id) {
             player_state.inventory = inventory_update_data.inventory;
         } else {
             const gop = other_player_states.getOrPut(inventory_update_data.id) catch return;
-            gop.entry.value.inventory = inventory_update_data.inventory;
+            gop.value_ptr.inventory = inventory_update_data.inventory;
         },
         .ChunkUpdate => |chunk_update| {
             worldRenderer.loadChunkFromMemory(chunk_update.pos, chunk_update.chunk) catch unreachable;
@@ -470,7 +470,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         var serialized = ArrayList(u8).init(context.alloc);
         defer serialized.deinit();
 
-        try core.protocol.Writer.init().write(packet, serialized.writer());
+        try core.protocol.Encoder.init().encode(packet, serialized.writer());
 
         try socket.send(serialized.items);
     }
@@ -501,7 +501,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
             var serialized = ArrayList(u8).init(context.alloc);
             defer serialized.deinit();
 
-            try core.protocol.Writer.init().write(packet, serialized.writer());
+            try core.protocol.Encoder.init().encode(packet, serialized.writer());
 
             try socket.send(serialized.items);
 
@@ -519,8 +519,8 @@ pub fn render(context: *platform.Context, alpha: f64) !void {
     const render_pos = player_state.position.scale(alpha).addv(previous_player_state.position.scale(1 - alpha));
 
     // const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
-    const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
-    const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
+    const right = vec3f(-@cos(camera_angle.x), 0, @sin(camera_angle.x));
+    const lookat = vec3f(@sin(camera_angle.x) * @cos(camera_angle.y), @sin(camera_angle.y), @cos(camera_angle.x) * @cos(camera_angle.y));
     const up = right.cross(lookat);
 
     const screen_size_int = context.getScreenSize();

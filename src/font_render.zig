@@ -26,7 +26,7 @@ pub const BitmapFontRenderer = struct {
         xadvance: f32,
     };
 
-    pub fn initFromFile(allocator: *std.mem.Allocator, filename: [:0]const u8) !@This() {
+    pub fn initFromFile(allocator: std.mem.Allocator, filename: [:0]const u8) !@This() {
         const cwd = std.fs.cwd();
         const contents = try cwd.readFileAlloc(allocator, filename, 500000);
         defer allocator.free(contents);
@@ -41,9 +41,9 @@ pub const BitmapFontRenderer = struct {
         var scaleH: f32 = 0;
         var expected_num_pages: usize = 0;
 
-        var line_iter = std.mem.tokenize(contents, "\n\r");
+        var line_iter = std.mem.tokenize(u8, contents, "\n\r");
         while (line_iter.next()) |line| {
-            var pair_iter = std.mem.tokenize(line, " \t");
+            var pair_iter = std.mem.tokenize(u8, line, " \t");
 
             const kind = pair_iter.next() orelse continue;
 
@@ -59,7 +59,7 @@ pub const BitmapFontRenderer = struct {
                 var page: u32 = undefined;
 
                 while (pair_iter.next()) |pair| {
-                    var kv_iter = std.mem.split(pair, "=");
+                    var kv_iter = std.mem.split(u8, pair, "=");
                     const key = kv_iter.next().?;
                     const value = kv_iter.rest();
 
@@ -84,7 +84,7 @@ pub const BitmapFontRenderer = struct {
                     } else if (std.mem.eql(u8, "chnl", key)) {
                         // TODO
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
 
@@ -101,7 +101,7 @@ pub const BitmapFontRenderer = struct {
                 });
             } else if (std.mem.eql(u8, "common", kind)) {
                 while (pair_iter.next()) |pair| {
-                    var kv_iter = std.mem.split(pair, "=");
+                    var kv_iter = std.mem.split(u8, pair, "=");
                     const key = kv_iter.next().?;
                     const value = kv_iter.rest();
 
@@ -118,7 +118,7 @@ pub const BitmapFontRenderer = struct {
                     } else if (std.mem.eql(u8, "pages", key)) {
                         expected_num_pages = try std.fmt.parseInt(usize, value, 10);
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
             } else if (std.mem.eql(u8, "page", kind)) {
@@ -127,7 +127,7 @@ pub const BitmapFontRenderer = struct {
                 defer allocator.free(page_filename);
 
                 while (pair_iter.next()) |pair| {
-                    var kv_iter = std.mem.split(pair, "=");
+                    var kv_iter = std.mem.split(u8, pair, "=");
                     const key = kv_iter.next().?;
                     const value = kv_iter.rest();
 
@@ -137,7 +137,7 @@ pub const BitmapFontRenderer = struct {
                         const trimmed = std.mem.trim(u8, value, "\"");
                         page_filename = try std.fs.path.join(allocator, &[_][]const u8{ base_path, trimmed });
                     } else {
-                        std.log.warn("unknown pair for {} kind: {}", .{ kind, pair });
+                        std.log.warn("unknown pair for {s} kind: {s}", .{ kind, pair });
                     }
                 }
 
@@ -189,8 +189,8 @@ pub const BitmapFontRenderer = struct {
             },
         };
         var y = switch (options.textBaseline) {
-            .Bottom => pos.y - std.math.floor(this.lineHeight * options.scale),
-            .Middle => pos.y - std.math.floor(this.lineHeight * options.scale / 2),
+            .Bottom => pos.y - @floor(this.lineHeight * options.scale),
+            .Middle => pos.y - @floor(this.lineHeight * options.scale / 2),
             .Top => pos.y,
         };
         const direction: f32 = switch (options.textAlign) {

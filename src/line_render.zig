@@ -7,7 +7,7 @@ const math = @import("math");
 const Mat4f = math.Mat4(f32);
 
 pub const LineRenderer = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     program: gl.GLuint,
     projectionMatrixUniform: gl.GLint = undefined,
@@ -15,7 +15,7 @@ pub const LineRenderer = struct {
     tilesetTex: gl.GLuint = undefined,
     cursor_vbo: gl.GLuint = undefined,
 
-    pub fn init(allocator: *std.mem.Allocator, tilesetTex: gl.GLuint) !@This() {
+    pub fn init(allocator: std.mem.Allocator, tilesetTex: gl.GLuint) !@This() {
         var this = @This(){
             .allocator = allocator,
             .program = try glUtil.compileShader(
@@ -55,7 +55,7 @@ pub const LineRenderer = struct {
 
         var other_player_states_iter = other_player_states.iterator();
         while (other_player_states_iter.next()) |entry| {
-            const pos = entry.value.position.floatCast(f32);
+            const pos = entry.value_ptr.position.floatCast(f32);
             const box = [24][4]f32{
                 .{ pos.x + 0, pos.y + 0, pos.z + 0, 10 },
                 .{ pos.x + 1, pos.y + 0, pos.z + 0, 10 },

@@ -14,7 +14,7 @@ const gl = platform.gl;
 const glUtil = platform.glUtil;
 
 pub const WorldRenderer = struct {
-    allocator: *Allocator,
+    allocator: Allocator,
     world: World,
     renderedChunks: std.AutoHashMap(Vec3i, ChunkRender),
     chunks_that_were_updated: std.AutoArrayHashMap(Vec3i, void),
@@ -25,7 +25,7 @@ pub const WorldRenderer = struct {
     daytimeUniform: gl.GLint = undefined,
     tilesetTex: gl.GLuint = undefined,
 
-    pub fn init(allocator: *Allocator, tilesetTex: gl.GLuint) !@This() {
+    pub fn init(allocator: Allocator, tilesetTex: gl.GLuint) !@This() {
         var this = @This(){
             .allocator = allocator,
             .world = try World.init(allocator),
@@ -53,7 +53,7 @@ pub const WorldRenderer = struct {
         gl.deleteProgram(this.program);
         var rendered_iter = this.renderedChunks.iterator();
         while (rendered_iter.next()) |entry| {
-            entry.value.deinit();
+            entry.value_ptr.deinit();
         }
         this.world.deinit();
         this.renderedChunks.deinit();
@@ -64,9 +64,9 @@ pub const WorldRenderer = struct {
         try this.world.loadChunkFromMemory(chunkPos, chunk);
         const gop = try this.renderedChunks.getOrPut(chunkPos);
         if (!gop.found_existing) {
-            gop.entry.value = ChunkRender.init(this.allocator);
+            gop.value_ptr.* = ChunkRender.init(this.allocator);
         }
-        try gop.entry.value.update(chunk, chunkPos, &this.world);
+        try gop.value_ptr.update(chunk, chunkPos, &this.world);
     }
 
     pub fn loadBlock(this: *@This(), globalPos: Vec3i, block: Block) !void {
@@ -83,10 +83,10 @@ pub const WorldRenderer = struct {
         _ = context;
         var updated_chunks_iter = this.chunks_that_were_updated.iterator();
         while (updated_chunks_iter.next()) |updated_chunk_entry| {
-            if (this.world.chunks.get(updated_chunk_entry.key)) |chunk| {
-                if (this.renderedChunks.getEntry(updated_chunk_entry.key)) |rendered_chunk_entry| {
-                    rendered_chunk_entry.value.update(chunk, updated_chunk_entry.key, &this.world) catch break;
-                    _ = this.chunks_that_were_updated.remove(updated_chunk_entry.key);
+            if (this.world.chunks.get(updated_chunk_entry.key_ptr.*)) |chunk| {
+                if (this.renderedChunks.getEntry(updated_chunk_entry.key_ptr.*)) |rendered_chunk_entry| {
+                    rendered_chunk_entry.value_ptr.update(chunk, updated_chunk_entry.key_ptr.*, &this.world) catch break;
+                    _ = this.chunks_that_were_updated.orderedRemove(updated_chunk_entry.key_ptr.*);
                     break;
                 }
             }
@@ -101,9 +101,9 @@ pub const WorldRenderer = struct {
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);
         var rendered_iter = this.renderedChunks.iterator();
         while (rendered_iter.next()) |entry| {
-            const mat = math.Mat4(f32).translation(entry.key.intToFloat(f32).scale(16));
+            const mat = math.Mat4(f32).translation(entry.key_ptr.*.intToFloat(f32).scale(16));
             gl.uniformMatrix4fv(this.modelTransformUniform, 1, gl.FALSE, &mat.v);
-            entry.value.render(this.program);
+            entry.value_ptr.render(this.program);
         }
     }
 };

@@ -34,7 +34,7 @@ pub fn warn(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub const Context = struct {
-    alloc: *std.mem.Allocator,
+    alloc: std.mem.Allocator,
     running: bool = true,
 
     pub fn getScreenSize(self: @This()) Vec2i {

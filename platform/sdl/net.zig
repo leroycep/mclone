@@ -26,13 +26,13 @@ pub const Frames = union(enum) {
         return @This(){ .WaitingForSize = {} };
     }
 
-    pub fn deinit(this: *@This(), alloc: *Allocator) void {
+    pub fn deinit(this: *@This(), alloc: Allocator) void {
         if (this.* == .WaitingForData) {
             alloc.free(this.WaitingForData.buffer);
         }
     }
 
-    pub fn update(this: *@This(), alloc: *Allocator, reader: anytype) !?[]u8 {
+    pub fn update(this: *@This(), alloc: Allocator, reader: anytype) !?[]u8 {
         while (true) {
             switch (this.*) {
                 .WaitingForSize => {
@@ -65,7 +65,7 @@ pub const Frames = union(enum) {
 };
 
 pub const FramesSocket = struct {
-    alloc: *Allocator,
+    alloc: Allocator,
     socket: Socket,
     frames: Frames,
     status: Status,
@@ -85,12 +85,12 @@ pub const FramesSocket = struct {
 
     const Error = error{ EndOfStream, OutOfMemory } || Socket.RecvFromError;
 
-    pub fn init(alloc: *Allocator, url: []const u8, user_data: usize) !*@This() {
+    pub fn init(alloc: Allocator, url: []const u8, user_data: usize) !*@This() {
         for (socket_slots) |*frames_socket_opt| {
             if (frames_socket_opt.* != null) continue;
 
             // TODO: Full url parsing
-            var address_port_iter = std.mem.split(url, ":");
+            var address_port_iter = std.mem.split(u8, url, ":");
             const addressText = address_port_iter.next().?;
 
             var port: u16 = 48836;
@@ -107,15 +107,15 @@ pub const FramesSocket = struct {
 
             std.log.debug("address: {}", .{address});
 
-            const sock_flags = std.os.SOCK_STREAM | std.os.SOCK_NONBLOCK | std.os.SOCK_CLOEXEC;
-            const sockfd = try std.os.socket(address.any.family, sock_flags, std.os.IPPROTO_TCP);
+            const sock_flags = std.os.SOCK.STREAM | std.os.SOCK.NONBLOCK | std.os.SOCK.CLOEXEC;
+            const sockfd = try std.os.socket(address.any.family, sock_flags, std.os.IPPROTO.TCP);
 
             // Add to zig std lib
             const SOL_TCP = 6;
             try std.os.setsockopt(
                 sockfd,
                 SOL_TCP,
-                std.os.TCP_NODELAY,
+                std.os.TCP.NODELAY,
                 &std.mem.toBytes(@as(c_int, 1)),
             );
 
@@ -201,7 +201,7 @@ const Socket = struct {
         return std.os.send(this.handle, buffer, 0);
     }
 
-    const is_windows = std.Target.current.os.tag == .windows;
+    const is_windows = builtin.os.tag == .windows;
 
     pub fn close(this: @This()) void {
         if (is_windows) {

@@ -45,10 +45,10 @@ pub const QuadBuildOptions = struct {
 };
 
 pub const Mesh = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     vertex: std.ArrayList(Vertex),
 
-    pub fn init(alloc: *std.mem.Allocator) !@This() {
+    pub fn init(alloc: std.mem.Allocator) !@This() {
         return @This(){
             .allocator = alloc,
             .vertex = try std.ArrayList(Vertex).initCapacity(alloc, CX * CY * CZ * 6 * 6),
@@ -106,9 +106,9 @@ pub const Mesh = struct {
 pub const ChunkRender = struct {
     vbo: GLuint,
     elements: usize,
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
-    pub fn init(alloc: *std.mem.Allocator) @This() {
+    pub fn init(alloc: std.mem.Allocator) @This() {
         var vbo: GLuint = 0;
         gl.genBuffers(1, &vbo);
         var this = @This(){
@@ -148,7 +148,7 @@ pub const ChunkRender = struct {
                     if (blk.blockType == .Wire) {
                         const tex = -@bitCast(gl.GLbyte, desc.texForSide(world, global_pos, .Top));
                         const light = @bitCast(gl.GLbyte, world.getLightv(global_pos));
-                        const opt = mesh.addUpQuad(QuadBuildOptions{
+                        const opt = try mesh.addUpQuad(QuadBuildOptions{
                             .direction = .Top,
                             .x = x,
                             .y = y,

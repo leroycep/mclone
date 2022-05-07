@@ -292,7 +292,7 @@ pub const World = struct {
 
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |chunk_entry| {
-            chunk_entry.value.setLightv(blockPos.subv(chunkPos.scale(16)), light);
+            chunk_entry.value_ptr.setLightv(blockPos.subv(chunkPos.scale(16)), light);
             this.chunks_where_light_was_updated.put(chunkPos, {}) catch unreachable;
         }
     }
@@ -369,9 +369,9 @@ pub const World = struct {
 
     pub fn raycast(self: @This(), origin: Vec3f, angle: Vec2f, max_len: f64) ?RaycastResult {
         const lookat = vec3f(
-            std.math.sin(angle.x) * std.math.cos(angle.y),
-            std.math.sin(angle.y),
-            std.math.cos(angle.x) * std.math.cos(angle.y),
+            @sin(angle.x) * @cos(angle.y),
+            @sin(angle.y),
+            @cos(angle.x) * @cos(angle.y),
         );
         const start = origin;
         const end = origin.addv(lookat.scale(max_len));

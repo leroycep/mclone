@@ -10,14 +10,14 @@ const player = @import("core").player;
 const Input = @import("./input.zig").Input;
 
 pub const HudRenderer = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
     itemBoxTexture: Texture,
     // itemTextures: []Texture,
     cursorTexture: Texture,
     flatRenderer: FlatRenderer,
     fontRenderer: BitmapFontRenderer,
 
-    pub fn init(alloc: *std.mem.Allocator) !@This() {
+    pub fn init(alloc: std.mem.Allocator) !@This() {
         // var itemTextures =
         return @This(){
             .allocator = alloc,
@@ -56,7 +56,7 @@ pub const HudRenderer = struct {
             if (player_state.inventory.stacks[input.equipped_item]) |inv| {
                 count = inv.count;
             }
-            const item_text = try std.fmt.bufPrint(&text_buf, "({}) {}", .{ count, std.meta.tagName(item) });
+            const item_text = try std.fmt.bufPrint(&text_buf, "({}) {s}", .{ count, std.meta.tagName(item) });
             try this.fontRenderer.drawText(&this.flatRenderer, item_text, vec2f(screen_size.x / 2, coords.y - 5), .{
                 .textAlign = .Center,
                 .textBaseline = .Bottom,

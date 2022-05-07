@@ -8,7 +8,7 @@ pub const Texture = struct {
     glTexture: gl.GLuint,
     size: math.Vec(2, usize),
 
-    pub fn initFromFile(alloc: *std.mem.Allocator, filePath: []const u8) !@This() {
+    pub fn initFromFile(alloc: std.mem.Allocator, filePath: []const u8) !@This() {
         const cwd = std.fs.cwd();
         const image_contents = try cwd.readFileAlloc(alloc, filePath, 500000);
         defer alloc.free(image_contents);
