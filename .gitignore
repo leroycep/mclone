@@ -4,3 +4,4 @@ platform/web/webgl.js
 deps.zig
 /zig-out/
 /.zigmod/
+/dep/

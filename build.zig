@@ -4,26 +4,12 @@ const Builder = std.build.Builder;
 const sep_str = std.fs.path.sep_str;
 const Cpu = std.Target.Cpu;
 const Pkg = std.build.Pkg;
-const deps = @import("./deps.zig");
+
+const GitRepoStep = @import("tools/GitRepoStep.zig");
 
 const SITE_DIR = "www";
-const PLATFORM = std.build.Pkg{
-    .name = "platform",
-    .path = .{ .path = "./platform/platform.zig" },
-    .dependencies = &[_]Pkg{deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
-};
-const UTIL = std.build.Pkg{
-    .name = "util",
-    .path = .{ .path = "./util/util.zig" },
-    .dependencies = &[_]Pkg{deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
-};
-const CORE = std.build.Pkg{
-    .name = "core",
-    .path = .{ .path = "./core/core.zig" },
-    .dependencies = &[_]Pkg{UTIL, deps.pkgs.math.pkg.?, deps.pkgs.zigimg.pkg.?, deps.pkgs.bare.pkg.?},
-};
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *Builder) !void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
@@ -42,8 +28,54 @@ pub fn build(b: *Builder) void {
         tests.linkLibC();
     }
 
+    // Download git packages
+    const bare_repo = GitRepoStep.create(b, .{
+        .url = "https://git.sr.ht/~alva/zig-bare",
+        .branch = "trunk",
+        .sha = "2e2a25e01c6cef887b1f4d56ff0749f37f8ea2c6",
+    });
+    const math_repo = GitRepoStep.create(b, .{
+        .url = "https://github.com/leroycep/zigmath",
+        .branch = "master",
+        .sha = "2f404f0af1f07f0cbdd72da58b5941aa374dfc12",
+    });
+    const zigimg_repo = GitRepoStep.create(b, .{
+        .url = "https://github.com/zigimg/zigimg",
+        .branch = "master",
+        .sha = "ed46298464cdef9f7aa97ae1d817bf621424419a"
+    });
+
+    const deps = b.step("deps", "collect dependencies");
+    deps.dependOn(&bare_repo.step);
+    deps.dependOn(&math_repo.step);
+    deps.dependOn(&zigimg_repo.step);
+
+    // Git dependencies
+    const bare_pkg = std.build.Pkg{ .name = "bare", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ bare_repo.getPath(deps), "src", "bare.zig" }) } };
+    const math_pkg = std.build.Pkg{ .name = "math", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ math_repo.getPath(deps), "math.zig" }) } };
+    const zigimg_pkg = std.build.Pkg{ .name = "zigimg", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ zigimg_repo.getPath(deps), "zigimg.zig" }) } };
+
+    const PLATFORM = std.build.Pkg{
+        .name = "platform",
+        .path = .{ .path = "./platform/platform.zig" },
+        .dependencies = &[_]Pkg{ bare_pkg, math_pkg, zigimg_pkg },
+    };
+    const UTIL = std.build.Pkg{
+        .name = "util",
+        .path = .{ .path = "./util/util.zig" },
+        .dependencies = &[_]Pkg{ bare_pkg, math_pkg, zigimg_pkg },
+    };
+    const CORE = std.build.Pkg{
+        .name = "core",
+        .path = .{ .path = "./core/core.zig" },
+        .dependencies = &[_]Pkg{ UTIL, bare_pkg, math_pkg, zigimg_pkg },
+    };
+
     const native = b.addExecutable("mclone", "src/main.zig");
-    deps.addAllTo(native);
+    native.step.dependOn(deps);
+    native.addPackage(bare_pkg);
+    native.addPackage(math_pkg);
+    native.addPackage(zigimg_pkg);
     native.addPackage(UTIL);
     native.addPackage(CORE);
     native.addPackage(PLATFORM);
@@ -56,7 +88,11 @@ pub fn build(b: *Builder) void {
 
     // Server
     const server = b.addExecutable("mclone-server", "server/server.zig");
-    deps.addAllTo(server);
+    // deps.addAllTo(server);
+    server.step.dependOn(deps);
+    server.addPackage(bare_pkg);
+    server.addPackage(math_pkg);
+    server.addPackage(zigimg_pkg);
     server.addPackage(UTIL);
     server.addPackage(CORE);
     server.setTarget(target);
