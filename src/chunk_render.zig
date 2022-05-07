@@ -76,7 +76,7 @@ pub const Mesh = struct {
         const z_frac = options.z_frac;
         const tex = options.tex;
         const light = options.tex;
-        if (options.ao) |ao| {
+        if (options.ao) |_| {
             // TODO: Fix ambient occlusion
             //const east = block.describe(ao[2][1]).isVisible(world, vec3i(x, y, z));
             //const west = block.describe(ao[0][1]).isVisible(world, vec3i(x, y, z));
@@ -126,7 +126,6 @@ pub const ChunkRender = struct {
     pub fn update(self: *@This(), chunk: Chunk, chunkPos: Vec3i, world: *const World) !void {
         var mesh: Mesh = try Mesh.init(self.allocator);
         defer mesh.deinit();
-        var i: u32 = 0;
 
         var xi: u8 = 0;
         while (xi < CX) : (xi += 1) {
@@ -136,7 +135,6 @@ pub const ChunkRender = struct {
                 while (zi < CZ) : (zi += 1) {
                     const blk = chunk.get(xi, yi, zi);
                     const desc = block.describe(blk);
-                    const data = blk.blockData;
 
                     var x = @intCast(i8, xi);
                     var y = @intCast(i8, yi);
@@ -159,6 +157,7 @@ pub const ChunkRender = struct {
                             .tex = tex,
                             .light = light,
                         });
+                        _ = opt;
                         continue;
                     }
                     // View from negative x
@@ -315,7 +314,7 @@ pub const ChunkRender = struct {
         if (attribute_coord_frac_result >= 0) {
             var attribute_coord_frac = @intCast(gl.GLuint, attribute_coord_frac_result);
             gl.enableVertexAttribArray(attribute_coord_frac);
-            gl.vertexAttribPointer(attribute_coord_frac, 3, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 3));
+            gl.vertexAttribPointer(attribute_coord_frac, 3, gl.BYTE, gl.FALSE, stride, @intToPtr(*anyopaque, 3));
         } else {
             std.log.debug("no coord_frac attribute", .{});
         }
@@ -324,7 +323,7 @@ pub const ChunkRender = struct {
         if (attribute_tex_result >= 0) {
             var attribute_tex = @intCast(gl.GLuint, attribute_tex_result);
             gl.enableVertexAttribArray(attribute_tex);
-            gl.vertexAttribPointer(attribute_tex, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 6));
+            gl.vertexAttribPointer(attribute_tex, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*anyopaque, 6));
         } else {
             std.log.debug("no tex attribute", .{});
         }
@@ -333,7 +332,7 @@ pub const ChunkRender = struct {
         if (attribute_ao_result >= 0) {
             var attribute_ao = @intCast(gl.GLuint, attribute_ao_result);
             gl.enableVertexAttribArray(attribute_ao);
-            gl.vertexAttribPointer(attribute_ao, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 7));
+            gl.vertexAttribPointer(attribute_ao, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*anyopaque, 7));
         } else {
             std.log.debug("no ao attribute", .{});
         }
@@ -342,7 +341,7 @@ pub const ChunkRender = struct {
         if (attribute_light_result >= 0) {
             var attribute_light = @intCast(gl.GLuint, attribute_light_result);
             gl.enableVertexAttribArray(attribute_light);
-            gl.vertexAttribPointer(attribute_light, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*c_void, 8));
+            gl.vertexAttribPointer(attribute_light, 1, gl.BYTE, gl.FALSE, stride, @intToPtr(*anyopaque, 8));
         } else {
             std.log.debug("no light attribute", .{});
         }

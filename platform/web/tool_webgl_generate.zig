@@ -219,7 +219,7 @@ const funcs = [_]Func{
         .args = &[_]Arg{
             .{ .name = "type", .type = "c_uint" },
             .{ .name = "count", .type = "c_long" },
-            .{ .name = "data_ptr", .type = "*const c_void" },
+            .{ .name = "data_ptr", .type = "*const anyopaque" },
             .{ .name = "draw_type", .type = "c_uint" },
         },
         .ret = "void",
@@ -428,7 +428,7 @@ const funcs = [_]Func{
             .{ .name = "mode", .type = "GLenum" },
             .{ .name = "count", .type = "GLsizei" },
             .{ .name = "type", .type = "GLenum" },
-            .{ .name = "offset", .type = "?*const c_void" },
+            .{ .name = "offset", .type = "?*const anyopaque" },
         },
         .ret = "void",
         .js =
@@ -741,7 +741,7 @@ const funcs = [_]Func{
             .{ .name = "type", .type = "c_uint" },
             .{ .name = "normalize", .type = "c_uint" },
             .{ .name = "stride", .type = "c_uint" },
-            .{ .name = "offset", .type = "?*c_void" },
+            .{ .name = "offset", .type = "?*anyopaque" },
         },
         .ret = "void",
         .js =
@@ -774,9 +774,9 @@ fn writeZigFile(filename: []const u8) !void {
     const file = try std.fs.cwd().createFile(filename, .{});
     defer file.close();
 
-    var stream = file.outStream();
+    var stream = file.writer();
 
-    try stream.print("{}\n\n", .{zig_top});
+    try stream.print("{s}\n\n", .{zig_top});
 
     for (funcs) |func| {
         const any_slice = for (func.args) |arg| {
@@ -788,43 +788,43 @@ fn writeZigFile(filename: []const u8) !void {
         // https://github.com/ziglang/zig/issues/3882
         const fmtarg_pub = if (any_slice) "" else "pub ";
         const fmtarg_suf = if (any_slice) "_" else "";
-        try stream.print("{}extern fn {}{}(", .{ fmtarg_pub, func.name, fmtarg_suf });
+        try stream.print("{s}extern fn {s}{s}(", .{ fmtarg_pub, func.name, fmtarg_suf });
         for (func.args) |arg, i| {
             if (i > 0) {
                 try stream.print(", ", .{});
             }
             if (std.mem.eql(u8, arg.type, "SLICE")) {
-                try stream.print("{}_ptr: [*]const u8, {}_len: c_uint", .{ arg.name, arg.name });
+                try stream.print("{s}_ptr: [*]const u8, {s}_len: c_uint", .{ arg.name, arg.name });
             } else {
-                try stream.print("{}: {}", .{ arg.name, arg.type });
+                try stream.print("{s}: {s}", .{ arg.name, arg.type });
             }
         }
-        try stream.print(") {};\n", .{func.ret});
+        try stream.print(") {s};\n", .{func.ret});
 
         if (any_slice) {
-            try stream.print("pub fn {}(", .{func.name});
+            try stream.print("pub fn {s}(", .{func.name});
             for (func.args) |arg, i| {
                 if (i > 0) {
                     try stream.print(", ", .{});
                 }
                 if (std.mem.eql(u8, arg.type, "SLICE")) {
-                    try stream.print("{}: []const u8", .{arg.name});
+                    try stream.print("{s}: []const u8", .{arg.name});
                 } else {
-                    try stream.print("{}: {}", .{ arg.name, arg.type });
+                    try stream.print("{s}: {s}", .{ arg.name, arg.type });
                 }
             }
-            try stream.print(") {} {{\n", .{func.ret});
+            try stream.print(") {s} {{\n", .{func.ret});
             // https://github.com/ziglang/zig/issues/3882
             const fmtarg_ret = if (std.mem.eql(u8, func.ret, "void")) "" else "return ";
-            try stream.print("    {}{}_(", .{ fmtarg_ret, func.name });
+            try stream.print("    {s}{s}_(", .{ fmtarg_ret, func.name });
             for (func.args) |arg, i| {
                 if (i > 0) {
                     try stream.print(", ", .{});
                 }
                 if (std.mem.eql(u8, arg.type, "SLICE")) {
-                    try stream.print("{}.ptr, {}.len", .{ arg.name, arg.name });
+                    try stream.print("{s}.ptr, {s}.len", .{ arg.name, arg.name });
                 } else {
-                    try stream.print("{}", .{arg.name});
+                    try stream.print("{s}", .{arg.name});
                 }
             }
             try stream.print(");\n", .{});
@@ -837,9 +837,9 @@ fn writeJsFile(filename: []const u8) !void {
     const file = try std.fs.cwd().createFile(filename, .{});
     defer file.close();
 
-    var stream = file.outStream();
+    var stream = file.writer();
 
-    try stream.print("{}\n", .{js_top});
+    try stream.print("{s}\n", .{js_top});
 
     try stream.print("    return {{\n", .{});
     for (funcs) |func| {
@@ -851,34 +851,34 @@ fn writeJsFile(filename: []const u8) !void {
 
         // https://github.com/ziglang/zig/issues/3882
         const fmtarg_suf = if (any_slice) "_" else "";
-        try stream.print("        {}{}(", .{ func.name, fmtarg_suf });
+        try stream.print("        {s}{s}(", .{ func.name, fmtarg_suf });
         for (func.args) |arg, i| {
             if (i > 0) {
                 try stream.print(", ", .{});
             }
             if (std.mem.eql(u8, arg.type, "SLICE")) {
-                try stream.print("{}_ptr, {}_len", .{ arg.name, arg.name });
+                try stream.print("{s}_ptr, {s}_len", .{ arg.name, arg.name });
             } else {
-                try stream.print("{}", .{arg.name});
+                try stream.print("{s}", .{arg.name});
             }
         }
         try stream.print(") {{\n", .{});
         for (func.args) |arg| {
             if (std.mem.eql(u8, arg.type, "SLICE")) {
-                try stream.print("            const {} = readCharStr({}_ptr, {}_len);\n", .{ arg.name, arg.name, arg.name });
+                try stream.print("            const {s} = readCharStr({s}_ptr, {s}_len);\n", .{ arg.name, arg.name, arg.name });
             }
         }
         var start: usize = 0;
         while (start < func.js.len) {
             const rel_newline_pos = nextNewline(func.js[start..]);
-            try stream.print("            {}\n", .{func.js[start .. start + rel_newline_pos]});
+            try stream.print("            {s}\n", .{func.js[start .. start + rel_newline_pos]});
             start += rel_newline_pos + 1;
         }
         try stream.print("        }},\n", .{});
     }
     try stream.print("    }};\n", .{});
 
-    try stream.print("{}\n", .{js_bottom});
+    try stream.print("{s}\n", .{js_bottom});
 }
 
 pub fn main() !void {

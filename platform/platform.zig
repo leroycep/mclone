@@ -1,8 +1,9 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Timer = std.time.Timer;
 
 pub const event = @import("./event.zig");
-pub const backend = if (std.builtin.arch == .wasm32) @import("web/web.zig") else @import("sdl/sdl.zig");
+pub const backend = if (builtin.cpu.arch == .wasm32) @import("web/web.zig") else @import("sdl/sdl.zig");
 
 pub usingnamespace backend;
 
@@ -21,4 +22,4 @@ pub const App = struct {
     tickDeltaSeconds: f64 = 16.0 / 1000.0,
 };
 
-//pub const run = backend.run;
+// pub const run = backend.run;

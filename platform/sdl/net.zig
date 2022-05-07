@@ -205,7 +205,7 @@ const Socket = struct {
 
     pub fn close(this: @This()) void {
         if (is_windows) {
-            std.os.windows.CloseHandle(self.handle);
+            std.os.windows.CloseHandle(this.handle);
         } else {
             std.os.close(this.handle);
         }

@@ -15,7 +15,6 @@ const Vec2i = math.Vec(2, i64);
 const vec2i = Vec2i.init;
 const Mat4f = math.Mat4(f64);
 const pi = std.math.pi;
-const OBB = collision.OBB;
 const core = @import("core");
 const BlockType = core.block.BlockType;
 const WorldRenderer = @import("./world_render.zig").WorldRenderer;
@@ -130,6 +129,7 @@ pub fn onInit(context: *platform.Context) !void {
 }
 
 fn onDeinit(context: *platform.Context) void {
+    _ = context;
     worldRenderer.deinit();
     lineRenderer.deinit();
     hudRenderer.deinit();
@@ -295,6 +295,7 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
             else => {},
         },
         .MouseWheel => |mouse_wheel| {
+            _ = mouse_wheel;
             // const blockTypeCount = @intCast(u8, @typeInfo(BlockType).Enum.fields.len);
             // var itemNum = @enumToInt(item);
             // if (mouse_wheel.y < 0) {
@@ -313,12 +314,14 @@ pub fn onEvent(context: *platform.Context, event: platform.event.Event) !void {
 }
 
 fn onSocketMessage(_socket: *net.FramesSocket, user_data: usize, message: []const u8) void {
+    _ = _socket;
+    _ = user_data;
     var fbs = std.io.fixedBufferStream(message);
 
     var reader = core.protocol.Reader.init(socket.alloc);
     defer reader.deinit();
 
-    const packet = reader.read(core.protocol.ServerDatagram, fbs.reader()) catch |err| {
+    const packet = reader.read(core.protocol.ServerDatagram, fbs.reader()) catch {
         std.log.err("Could not read packet", .{});
         return;
     };
@@ -515,7 +518,7 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
 pub fn render(context: *platform.Context, alpha: f64) !void {
     const render_pos = player_state.position.scale(alpha).addv(previous_player_state.position.scale(1 - alpha));
 
-    const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
+    // const forward = vec3f(std.math.sin(camera_angle.x), 0, std.math.cos(camera_angle.x));
     const right = vec3f(-std.math.cos(camera_angle.x), 0, std.math.sin(camera_angle.x));
     const lookat = vec3f(std.math.sin(camera_angle.x) * std.math.cos(camera_angle.y), std.math.sin(camera_angle.y), std.math.cos(camera_angle.x) * std.math.cos(camera_angle.y));
     const up = right.cross(lookat);

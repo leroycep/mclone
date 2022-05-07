@@ -80,6 +80,7 @@ pub const WorldRenderer = struct {
     }
 
     pub fn render(this: *@This(), context: *platform.Context, projection: Mat4f, daytime: u32) void {
+        _ = context;
         var updated_chunks_iter = this.chunks_that_were_updated.iterator();
         while (updated_chunks_iter.next()) |updated_chunk_entry| {
             if (this.world.chunks.get(updated_chunk_entry.key)) |chunk| {
@@ -93,8 +94,8 @@ pub const WorldRenderer = struct {
 
         gl.useProgram(this.program);
         defer gl.useProgram(0);
-        const screen_size_int = context.getScreenSize();
-        const screen_size = screen_size_int.intToFloat(f64);
+        // const screen_size_int = context.getScreenSize();
+        // const screen_size = screen_size_int.intToFloat(f64);
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tilesetTex);
         gl.uniform1ui(this.daytimeUniform, daytime);
         gl.uniformMatrix4fv(this.projectionMatrixUniform, 1, gl.FALSE, &projection.v);

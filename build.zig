@@ -9,18 +9,18 @@ const deps = @import("./deps.zig");
 const SITE_DIR = "www";
 const PLATFORM = std.build.Pkg{
     .name = "platform",
-    .path = "./platform/platform.zig",
-    .dependencies = &[_]Pkg{ deps.pkgs.math, deps.pkgs.zigimg },
+    .path = .{.path = "./platform/platform.zig"},
+    .dependencies = &[_]Pkg{},
 };
 const UTIL = std.build.Pkg{
     .name = "util",
-    .path = "./util/util.zig",
-    .dependencies = &[_]Pkg{deps.pkgs.math},
+    .path = .{.path = "./util/util.zig"},
+    .dependencies = &[_]Pkg{},
 };
 const CORE = std.build.Pkg{
     .name = "core",
-    .path = "./core/core.zig",
-    .dependencies = &[_]Pkg{ UTIL, deps.pkgs.math, deps.pkgs.bare },
+    .path = .{.path = "./core/core.zig"},
+    .dependencies = &[_]Pkg{ UTIL},
 };
 
 pub fn build(b: *Builder) void {
@@ -29,8 +29,11 @@ pub fn build(b: *Builder) void {
 
     const tracy = b.option([]const u8, "tracy", "Enable Tracy integration. Supply path to Tracy source");
 
+    const options = b.addOptions();
+    options.addOption(bool, "enable_tracy", tracy != null);
+
     const tests = b.addTest("src/main.zig");
-    tests.addBuildOption(bool, "enable_tracy", tracy != null);
+    tests.addOptions("enable_tracy", options);
     if (tracy) |tracy_path| {
         const client_cpp = std.fs.path.join(b.allocator, &[_][]const u8{ tracy_path, "TracyClient.cpp" }) catch unreachable;
         tests.addIncludeDir(tracy_path);
@@ -53,13 +56,13 @@ pub fn build(b: *Builder) void {
 
     // Server
     const server = b.addExecutable("mclone-server", "server/server.zig");
+    deps.addAllTo(server);
     server.addPackage(UTIL);
     server.addPackage(CORE);
-    server.addPackage(deps.pkgs.math);
     server.setTarget(target);
     server.setBuildMode(mode);
     server.install();
-    server.addBuildOption(bool, "enable_tracy", tracy != null);
+    server.addOptions("enable_tracy", options);
     if (tracy) |tracy_path| {
         const client_cpp = std.fs.path.join(b.allocator, &[_][]const u8{ tracy_path, "TracyClient.cpp" }) catch unreachable;
         server.addIncludeDir(tracy_path);
@@ -77,12 +80,12 @@ pub fn build(b: *Builder) void {
     b.step("run", "Run the native binary").dependOn(&native.run().step);
 
     const wasm = b.addStaticLibrary("mclone-web", "src/main.zig");
+    deps.addAllTo(wasm);
     wasm.addPackage(CORE);
     wasm.addPackage(UTIL);
-    wasm.addPackage(deps.pkgs.math);
     wasm.addPackage(PLATFORM);
     wasm.step.dependOn(&b.addExecutable("webgl_generate", "platform/web/tool_webgl_generate.zig").run().step);
-    const wasmOutDir = b.fmt("{}" ++ sep_str ++ SITE_DIR, .{b.install_prefix});
+    const wasmOutDir = b.fmt("{s}" ++ sep_str ++ SITE_DIR, .{b.install_prefix});
     wasm.setOutputDir(wasmOutDir);
     wasm.setBuildMode(b.standardReleaseOptions());
     wasm.setTarget(.{
@@ -90,10 +93,10 @@ pub fn build(b: *Builder) void {
         .os_tag = .freestanding,
     });
 
-    const htmlInstall = b.addInstallFile("./index.html", SITE_DIR ++ sep_str ++ "index.html");
-    const cssInstall = b.addInstallFile("./index.css", SITE_DIR ++ sep_str ++ "index.css");
-    const webglJsInstall = b.addInstallFile("platform/web/webgl.js", SITE_DIR ++ sep_str ++ "webgl.js");
-    const mainJsInstall = b.addInstallFile("platform/web/main.js", SITE_DIR ++ sep_str ++ "main.js");
+    const htmlInstall = b.addInstallFile(.{.path = "./index.html"}, SITE_DIR ++ sep_str ++ "index.html");
+    const cssInstall = b.addInstallFile(.{.path = "./index.css"}, SITE_DIR ++ sep_str ++ "index.css");
+    const webglJsInstall = b.addInstallFile(.{.path = "platform/web/webgl.js"}, SITE_DIR ++ sep_str ++ "webgl.js");
+    const mainJsInstall = b.addInstallFile(.{.path = "platform/web/main.js"}, SITE_DIR ++ sep_str ++ "main.js");
 
     wasm.step.dependOn(&htmlInstall.step);
     wasm.step.dependOn(&cssInstall.step);

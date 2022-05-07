@@ -143,12 +143,13 @@ pub const State = struct {
     inventory: Inventory(40),
 
     pub fn update(this: *@This(), currentTime: f64, deltaTime: f64, input: Input, world: *World) void {
+        _ = currentTime;
         this.lookAngle = input.lookAngle;
 
         const forward = vec3f(std.math.sin(this.lookAngle.x), 0, std.math.cos(this.lookAngle.x));
         const right = vec3f(-std.math.cos(this.lookAngle.x), 0, std.math.sin(this.lookAngle.x));
-        const lookat = vec3f(std.math.sin(this.lookAngle.x) * std.math.cos(this.lookAngle.y), std.math.sin(this.lookAngle.y), std.math.cos(this.lookAngle.x) * std.math.cos(this.lookAngle.y));
-        const up = vec3f(0, 1, 0);
+        // const lookat = vec3f(std.math.sin(this.lookAngle.x) * std.math.cos(this.lookAngle.y), std.math.sin(this.lookAngle.y), std.math.cos(this.lookAngle.x) * std.math.cos(this.lookAngle.y));
+        // const up = vec3f(0, 1, 0);
 
         this.velocity.y += -GRAVITY * deltaTime;
         if (this.onGround and input.jump) {

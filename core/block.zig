@@ -139,7 +139,7 @@ pub const BlockDescription = struct {
 };
 
 // TODO: Make this run at runtime so that texture ids can be dynamically found
-const DESCRIPTIONS = comptime describe_blocks: {
+const DESCRIPTIONS = describe_blocks: {
     var descriptions: [256]BlockDescription = undefined;
 
     descriptions[@enumToInt(BlockType.Air)] = .{
@@ -206,10 +206,16 @@ pub fn describe(block: Block) BlockDescription {
 // const BoolFn = fn (this: *const BlockDescription, world: *const World, pos: Vec3i) bool;
 
 pub fn returnTrueFn(this: *const BlockDescription, world: *const World, pos: Vec3i) bool {
+    _ = this;
+    _ = world;
+    _ = pos;
     return true;
 }
 
 pub fn returnFalseFn(this: *const BlockDescription, world: *const World, pos: Vec3i) bool {
+    _ = this;
+    _ = world;
+    _ = pos;
     return false;
 }
 
@@ -218,6 +224,10 @@ const TexForSideFn = fn (this: *const BlockDescription, world: *const World, pos
 fn singleTexBlock(comptime texId: u8) TexForSideFn {
     const S = struct {
         fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            _ = this;
+            _ = world;
+            _ = pos;
+            _ = side;
             return texId;
         }
     };
@@ -230,6 +240,9 @@ fn makeOrientedBlockTex(comptime texIds: [6]u8) TexForSideFn {
         const cos = Orientation.cos;
 
         fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            _ = this;
+            _ = pos;
+            _ = side;
             const data = world.getv(pos).blockData;
             const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
             const orientedSide = switch (side) {
@@ -261,6 +274,9 @@ fn IntReturnedFn(comptime I: type) type {
 fn returnStaticInt(comptime I: type, comptime num: I) IntReturnedFn(I) {
     const S = struct {
         fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i) I {
+            _ = this;
+            _ = world;
+            _ = pos;
             return num;
         }
     };
@@ -270,7 +286,11 @@ fn returnStaticInt(comptime I: type, comptime num: I) IntReturnedFn(I) {
 // Update FNs
 const UpdateFn = fn (this: *const BlockDescription, world: *World, pos: Vec3i) void;
 
-fn doNothing(this: *const BlockDescription, world: *World, pos: Vec3i) void {}
+fn doNothing(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    _ = this;
+    _ = world;
+    _ = pos;
+}
 
 const ADJACENT_OFFSETS = [_]Vec3i{
     vec3i(-1, 0, 0),
@@ -282,6 +302,7 @@ const ADJACENT_OFFSETS = [_]Vec3i{
 };
 
 fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    _ = this;
     var block = world.getv(pos);
     const current_signal = @intCast(u4, block.blockData & 0xF);
 
@@ -332,6 +353,7 @@ fn wireUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
 }
 
 fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    _ = this;
     const sin = Orientation.sin;
     const cos = Orientation.cos;
 
@@ -344,8 +366,8 @@ fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i
     const input_offset = vec3i(cos(o.y), sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
     const input_block = world.getv(pos.addv(input_offset));
     // Default is the west side
-    const output_offset = vec3i(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
-    const output_block = world.getv(pos.addv(output_offset));
+    // const output_offset = vec3i(-cos(o.y), -sin(o.y) * sin(o.x), sin(o.y) * cos(o.x));
+    // const output_block = world.getv(pos.addv(output_offset));
 
     const input_signal = switch (input_block.blockType) {
         .SignalSource => true,
@@ -376,12 +398,13 @@ fn signalInverterUpdate(this: *const BlockDescription, world: *World, pos: Vec3i
 }
 
 fn signalInverterTick(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    _ = this;
     const sin = Orientation.sin;
     const cos = Orientation.cos;
 
     var block = world.getv(pos);
     const data = world.getv(pos).blockData;
-    const current_signal = (data >> 6) & 1 == 1;
+    // const current_signal = (data >> 6) & 1 == 1;
     const new_signal = (data >> 7) & 1 == 1;
     const has_been_updated = (data >> 8) & 1 == 1;
     const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
@@ -403,6 +426,7 @@ fn makeOrientedSignalInverterTex(comptime sideId: u8, comptime inputId: u8, comp
         const cos = Orientation.cos;
 
         fn getTex(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+            _ = this;
             const data = world.getv(pos).blockData;
             const o = Orientation.fromU6(@intCast(u6, data & 0b111111));
             const orientedSide = switch (side) {
@@ -474,18 +498,22 @@ pub fn removeSignalv(world: *World, placePos: Vec3i, prevSignalLevel: u4) !void 
 }
 
 fn torchGetLightEmitted(this: *const BlockDescription, world: *const World, pos: Vec3i) u4 {
+    _ = this;
     const block = world.getv(pos);
     const has_signal = block.blockData > 0;
     return if (has_signal) 15 else 0;
 }
 
 fn torchGetTexForSide(this: *const BlockDescription, world: *const World, pos: Vec3i, side: Side) u8 {
+    _ = this;
+    _ = side;
     const block = world.getv(pos);
     const has_signal = block.blockData > 0;
     return if (has_signal) 10 else 11;
 }
 
 fn torchUpdate(this: *const BlockDescription, world: *World, pos: Vec3i) void {
+    _ = this;
     var has_signal = false;
     for (ADJACENT_OFFSETS) |offset| {
         const offset_pos = pos.addv(offset);

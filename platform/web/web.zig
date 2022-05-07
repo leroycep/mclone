@@ -1,5 +1,5 @@
-pub usingnamespace @import("./webgl_generated.zig");
-pub const Renderer = @import("./renderer.zig").Renderer;
+pub const webgl = @import("./webgl_generated.zig");
+pub usingnamespace webgl;
 const std = @import("std");
 const Vec2i = @import("math").Vec2i;
 
@@ -13,12 +13,12 @@ pub fn now() u64 {
 }
 
 pub fn getScreenSize() Vec2i {
-    return Vec2i.init(getScreenW(), getScreenH());
+    return Vec2i.init(webgl.getScreenW(), webgl.getScreenH());
 }
 
 const webGetScreenSize = getScreenSize;
 
-pub const setShaderSource = glShaderSource;
+pub const setShaderSource = webgl.glShaderSource;
 
 pub fn renderPresent() void {}
 
@@ -38,11 +38,13 @@ pub const Context = struct {
     running: bool = true,
 
     pub fn getScreenSize(self: @This()) Vec2i {
-        return webGetScreenSize();
+        _ = self;
+        return webgl.webGetScreenSize();
     }
 
-    pub fn set_cursor(self: @This(), cursor_style: common.CursorStyle) void {
-        canvas_setCursorStyle(switch (cursor_style) {
+    pub fn set_cursor(self: @This(), cursor_style: webgl.common.CursorStyle) void {
+        _ = self;
+        webgl.canvas_setCursorStyle(switch (cursor_style) {
             .default => 0,
             .move => 1,
             .grabbing => 2,
@@ -50,7 +52,8 @@ pub const Context = struct {
     }
 
     pub fn request_fullscreen(self: @This()) void {
-        requestFullscreen();
+        _ = self;
+        webgl.requestFullscreen();
     }
 };
 
@@ -82,13 +85,13 @@ export const MOUSE_BUTTON_RIGHT = @enumToInt(platform.event.MouseButton.Right);
 export const MOUSE_BUTTON_X1 = @enumToInt(platform.event.MouseButton.X1);
 export const MOUSE_BUTTON_X2 = @enumToInt(platform.event.MouseButton.X2);
 
-export const MAX_DELTA_SECONDS = constants.MAX_DELTA_SECONDS;
-export const TICK_DELTA_SECONDS = constants.TICK_DELTA_SECONDS;
+export const MAX_DELTA_SECONDS = webgl.MAX_DELTA_SECONDS;
+export const TICK_DELTA_SECONDS = webgl.TICK_DELTA_SECONDS;
 
 var context: platform.Context = undefined;
 
 export fn onInit() void {
-    const alloc = zee_alloc.ZeeAllocDefaults.wasm_allocator;
+    const alloc = webgl.zee_alloc.ZeeAllocDefaults.wasm_allocator;
     context = platform.Context{
         .alloc = alloc,
         .renderer = platform.Renderer.init(),
@@ -97,7 +100,7 @@ export fn onInit() void {
 }
 
 export fn onMouseMove(x: i32, y: i32, buttons: u32) void {
-    app.onEvent(&context, .{
+   app.onEvent(&context, .{
         .MouseMotion = .{ .pos = Vec2i.init(x, y), .buttons = buttons },
     });
 }
@@ -140,7 +143,7 @@ export fn onKeyUp(key: u16, scancode: u16) void {
 
 export const TEXT_INPUT_BUFFER: [32]u8 = undefined;
 export fn onTextInput(len: u8) void {
-    app.onEvent(&context, .{
+    .app.onEvent(&context, .{
         .TextInput = .{
             ._buf = TEXT_INPUT_BUFFER,
             .text = TEXT_INPUT_BUFFER[0..len],
@@ -169,6 +172,7 @@ export fn render(alpha: f64) void {
 }
 
 pub fn panic(msg: []const u8, error_return_trace: ?*builtin.StackTrace) noreturn {
+    _ = error_return_trace;
     platform.consoleLogS(msg.ptr, msg.len);
     //platform.warn("{}", .{error_return_trace});
     while (true) {

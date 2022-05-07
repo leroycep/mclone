@@ -63,6 +63,7 @@ pub const World = struct {
         defer tracy.end();
 
         if (this.chunks.get(chunkPos)) |chunk| {
+            _ = chunk;
             // Chunk is loaded, ignore it
             return;
         }
@@ -125,6 +126,8 @@ pub const World = struct {
     }
 
     pub fn tick(this: *@This(), time: f64, delta: f64) !void {
+        _ = time;
+        _ = delta;
         var lightRemovalBfsQueue = ArrayDeque(RemoveLightNode).init(this.allocator);
         defer lightRemovalBfsQueue.deinit();
         var lightBfsQueue = ArrayDeque(Vec3i).init(this.allocator);

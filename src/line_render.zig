@@ -38,6 +38,7 @@ pub const LineRenderer = struct {
     }
 
     pub fn render(this: *@This(), context: *platform.Context, projection: Mat4f, other_player_states: *std.AutoHashMap(u64, core.player.State), selected_block: ?core.World.RaycastResult) void {
+        _ = context;
         // Line Drawing Code
         gl.useProgram(this.program);
         defer gl.useProgram(0);

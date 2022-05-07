@@ -130,6 +130,7 @@ pub const Chunk = struct {
     }
 
     pub fn isInBoundsv(self: *@This(), vec: Vec3i) bool {
+        _ = self;
         return (vec.x >= 0 and vec.x < CX and
             vec.y >= 0 and vec.y < CY and
             vec.z >= 0 and vec.z < CZ);
