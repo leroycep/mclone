@@ -31,7 +31,7 @@ pub fn main() !void {
     defer server.deinit();
 
     try server.listen(localhost);
-    std.log.info("listening on {}", .{server.listen_address});
+    //    std.log.info("listening on {}", .{server.listen_address});
 
     // Create client threads
     var clients = AutoHashMap(std.os.fd_t, Client).init(alloc);
@@ -89,7 +89,7 @@ pub fn main() !void {
 
         for (pollfds.items) |pollfd, pollfd_idx| {
             if (poll_count == 0) break;
-            //std.log.debug("polls ready: {}", .{poll_count});
+            //            //std.log.debug("polls ready: {}", .{poll_count});
 
             if (pollfd.revents & std.os.POLL.IN != std.os.POLL.IN) continue;
             poll_count -= 1;
@@ -138,7 +138,7 @@ pub fn main() !void {
                     },
                 });
 
-                std.log.info("{} connected", .{new_connection.address});
+                //                std.log.info("{} connected", .{new_connection.address});
             } else if (clients.getEntry(pollfd.fd)) |client_entry| {
                 const client = client_entry.value_ptr;
                 if (client.handle()) |bare_data_opt| {
@@ -161,7 +161,7 @@ pub fn main() !void {
                                     try client.sendPacket(ServerDatagram{
                                         .ChunkUpdate = .{ .pos = chunk_request_pos, .chunk = chunk },
                                     });
-                                    std.log.debug("served chunk: {}", .{chunk_request_pos});
+                                    //                                    std.log.debug("served chunk: {}", .{chunk_request_pos});
                                 } else {
                                     try client.sendPacket(ServerDatagram{
                                         .EmptyChunk = chunk_request_pos,
@@ -196,7 +196,8 @@ pub fn main() !void {
                                             .count = 1,
                                         });
                                         if (result) |res| {
-                                            std.log.debug("Could not fit {} into inventory", .{res});
+                                            //                                            std.log.debug("Could not fit {} into inventory", .{res});
+                                            _ = res;
                                         }
                                     }
                                     try world.setAndUpdatev(block_pos, .{ .blockType = .Air });
@@ -206,7 +207,7 @@ pub fn main() !void {
                                     var placingBlock = client.state.inventory.removeCountAtIndex(update.input.equipped_item, 1);
                                     if (placingBlock) |block| {
                                         if (placing.block.blockType == block.blockType) {
-                                            std.log.debug("{}", .{client.state.inventory.stacks[update.input.equipped_item]});
+                                            //                                            std.log.debug("{}", .{client.state.inventory.stacks[update.input.equipped_item]});
                                             try world.setAndUpdatev(placing.pos, placing.block);
                                         }
                                     }
@@ -274,7 +275,7 @@ pub fn main() !void {
         // Update the world if enough time has passed
         var delta = @intToFloat(f64, timer.lap()) / std.time.ns_per_s; // Delta in seconds
         if (delta > MAX_DELTA) {
-            std.log.warn("delta was too great, reducing from {} to max {}", .{ delta, MAX_DELTA });
+            //            std.log.warn("delta was too great, reducing from {} to max {}", .{ delta, MAX_DELTA });
             delta = MAX_DELTA; // Try to avoid spiral of death when lag hits
         }
 
@@ -292,14 +293,14 @@ fn disconnectClient(pollfds: *ArrayList(std.os.pollfd), clients: *AutoHashMap(st
     const client = clients.fetchRemove(pollfds.items[pollfd_idx].fd).?;
     client.value.connection.file.close();
     _ = pollfds.swapRemove(pollfd_idx);
-    std.log.info("{} disconnected", .{client.value.connection.address});
+    //    std.log.info("{} disconnected", .{client.value.connection.address});
 }
 
 fn broadcast(clients: *AutoHashMap(std.os.fd_t, Client), message: []const u8) void {
     var clients_iter = clients.iterator();
     while (clients_iter.next()) |client| {
-        client.value_ptr.send(message) catch |e| {
-            std.log.warn("Error broadcasting to client: {}", .{e});
+        client.value_ptr.send(message) catch {
+            //            std.log.warn("Error broadcasting to client: {}", .{e});
             continue;
         };
     }
@@ -309,7 +310,8 @@ fn broadcastPacket(alloc: Allocator, clients: *AutoHashMap(std.os.fd_t, Client),
     var serialized = ArrayList(u8).init(alloc);
     defer serialized.deinit();
 
-    core.protocol.Encoder.init().encode(data, serialized.writer()) catch return;
+    var encoder = core.protocol.Encoder.init();
+    encoder.encode(data, serialized.writer()) catch return;
 
     broadcast(clients, serialized.items);
 }
@@ -338,7 +340,8 @@ const Client = struct {
         var serialized = ArrayList(u8).init(this.alloc);
         defer serialized.deinit();
 
-        try core.protocol.Encoder.init().encode(data, serialized.writer());
+        var encoder = core.protocol.Encoder.init();
+        try encoder.encode(data, serialized.writer());
 
         try this.send(serialized.items);
     }

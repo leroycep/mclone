@@ -101,13 +101,13 @@ pub const Orientation = struct {
 
 pub const BlockDescription = struct {
     isUsedForAO: bool = true,
-    isOpaqueFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
-    isSolidFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
-    isVisibleFn: fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
-    texForSideFn: fn (this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8,
-    lightEmittedFn: fn (this: *const @This(), world: *const World, pos: Vec3i) u4 = returnStaticInt(u4, 0),
-    updateFn: fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
-    tickFn: fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
+    isOpaqueFn: *const fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    isSolidFn: *const fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    isVisibleFn: *const fn (this: *const @This(), world: *const World, pos: Vec3i) bool = returnTrueFn,
+    texForSideFn: *const fn (this: *const @This(), world: *const World, pos: Vec3i, side: Side) u8,
+    lightEmittedFn: *const fn (this: *const @This(), world: *const World, pos: Vec3i) u4 = returnStaticInt(u4, 0),
+    updateFn: *const fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
+    tickFn: *const fn (this: *const @This(), world: *World, pos: Vec3i) void = doNothing,
 
     pub fn isOpaque(this: *const @This(), world: *const World, pos: Vec3i) bool {
         return this.isOpaqueFn(this, world, pos);

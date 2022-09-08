@@ -4,6 +4,6 @@ pub const chunk = @import("./chunk.zig");
 pub const player = @import("./player.zig");
 pub const protocol = @import("./protocol.zig");
 
-test "" {
+comptime {
     _ = @import("./protocol.zig");
 }

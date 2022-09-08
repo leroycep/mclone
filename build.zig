@@ -37,12 +37,12 @@ pub fn build(b: *Builder) !void {
     const math_repo = GitRepoStep.create(b, .{
         .url = "https://github.com/leroycep/zigmath",
         .branch = "master",
-        .sha = "2f404f0af1f07f0cbdd72da58b5941aa374dfc12",
+        .sha = "45d824a883b3bf8d6da4e2fc183ba6d65f70547d",
     });
     const zigimg_repo = GitRepoStep.create(b, .{
         .url = "https://github.com/zigimg/zigimg",
-        .branch = "master",
-        .sha = "ed46298464cdef9f7aa97ae1d817bf621424419a"
+        .branch = "stage2_compat",
+        .sha = "91a01ada15344e5bbdc83ae65b7a85c529aad151",
     });
 
     const deps = b.step("deps", "collect dependencies");
@@ -51,23 +51,23 @@ pub fn build(b: *Builder) !void {
     deps.dependOn(&zigimg_repo.step);
 
     // Git dependencies
-    const bare_pkg = std.build.Pkg{ .name = "bare", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ bare_repo.getPath(deps), "src", "bare.zig" }) } };
-    const math_pkg = std.build.Pkg{ .name = "math", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ math_repo.getPath(deps), "math.zig" }) } };
-    const zigimg_pkg = std.build.Pkg{ .name = "zigimg", .path = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ zigimg_repo.getPath(deps), "zigimg.zig" }) } };
+    const bare_pkg = std.build.Pkg{ .name = "bare", .source = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ bare_repo.getPath(deps), "src", "bare.zig" }) } };
+    const math_pkg = std.build.Pkg{ .name = "math", .source = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ math_repo.getPath(deps), "math.zig" }) } };
+    const zigimg_pkg = std.build.Pkg{ .name = "zigimg", .source = .{ .path = try std.fs.path.join(b.allocator, &[_][]const u8{ zigimg_repo.getPath(deps), "zigimg.zig" }) } };
 
     const PLATFORM = std.build.Pkg{
         .name = "platform",
-        .path = .{ .path = "./platform/platform.zig" },
+        .source = .{ .path = "./platform/platform.zig" },
         .dependencies = &[_]Pkg{ bare_pkg, math_pkg, zigimg_pkg },
     };
     const UTIL = std.build.Pkg{
         .name = "util",
-        .path = .{ .path = "./util/util.zig" },
+        .source = .{ .path = "./util/util.zig" },
         .dependencies = &[_]Pkg{ bare_pkg, math_pkg, zigimg_pkg },
     };
     const CORE = std.build.Pkg{
         .name = "core",
-        .path = .{ .path = "./core/core.zig" },
+        .source = .{ .path = "./core/core.zig" },
         .dependencies = &[_]Pkg{ UTIL, bare_pkg, math_pkg, zigimg_pkg },
     };
 

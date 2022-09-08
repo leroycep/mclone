@@ -13,23 +13,22 @@ pub const Texture = struct {
         const image_contents = try cwd.readFileAlloc(alloc, filePath, 500000);
         defer alloc.free(image_contents);
 
-        const load_res = try zigimg.Image.fromMemory(alloc, image_contents);
+        var load_res = try zigimg.Image.fromMemory(alloc, image_contents);
         defer load_res.deinit();
-        if (load_res.pixels == null) return error.ImageLoadFailed;
 
         var pixelData = try alloc.alloc(u8, load_res.width * load_res.height * 4);
         defer alloc.free(pixelData);
 
         // TODO: skip converting to RGBA and let OpenGL handle it by telling it what format it is in
-        var pixelsIterator = zigimg.color.ColorStorageIterator.init(&load_res.pixels.?);
+        var pixelsIterator = zigimg.color.PixelStorageIterator.init(&load_res.pixels);
 
         var i: usize = 0;
         while (pixelsIterator.next()) |color| : (i += 1) {
-            const integer_color = color.toIntegerColor8();
-            pixelData[i * 4 + 0] = integer_color.R;
-            pixelData[i * 4 + 1] = integer_color.G;
-            pixelData[i * 4 + 2] = integer_color.B;
-            pixelData[i * 4 + 3] = integer_color.A;
+            const integer_color = color.toRgba(u8);
+            pixelData[i * 4 + 0] = integer_color.r;
+            pixelData[i * 4 + 1] = integer_color.g;
+            pixelData[i * 4 + 2] = integer_color.b;
+            pixelData[i * 4 + 3] = integer_color.a;
         }
 
         var tex: gl.GLuint = 0;

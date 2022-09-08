@@ -113,6 +113,7 @@ pub fn onInit(context: *platform.Context) !void {
     });
     worldRenderer = try WorldRenderer.init(context.alloc, tilesetTex);
     lineRenderer = try LineRenderer.init(context.alloc, tilesetTex);
+    flatRenderer = try FlatRenderer.init(context.alloc, context.getScreenSize().intToFloat(f32));
     hudRenderer = try HudRenderer.init(context.alloc);
 
     try context.setRelativeMouseMode(true);
@@ -163,23 +164,22 @@ fn loadTile(alloc: std.mem.Allocator, layer: gl.GLint, filepath: []const u8) !vo
     const image_contents = try cwd.readFileAlloc(alloc, filepath, 50000);
     defer alloc.free(image_contents);
 
-    const load_res = try zigimg.Image.fromMemory(alloc, image_contents);
+    var load_res = try zigimg.Image.fromMemory(alloc, image_contents);
     defer load_res.deinit();
-    if (load_res.pixels == null) return error.ImageLoadFailed;
 
     var pixelData = try alloc.alloc(u8, load_res.width * load_res.height * 4);
     defer alloc.free(pixelData);
 
     // TODO: skip converting to RGBA and let OpenGL handle it by telling it what format it is in
-    var pixelsIterator = zigimg.color.ColorStorageIterator.init(&load_res.pixels.?);
+    var pixelsIterator = zigimg.color.PixelStorageIterator.init(&load_res.pixels);
 
     var i: usize = 0;
     while (pixelsIterator.next()) |color| : (i += 1) {
-        const integer_color = color.toIntegerColor8();
-        pixelData[i * 4 + 0] = integer_color.R;
-        pixelData[i * 4 + 1] = integer_color.G;
-        pixelData[i * 4 + 2] = integer_color.B;
-        pixelData[i * 4 + 3] = integer_color.A;
+        const integer_color = color.toRgba(u8);
+        pixelData[i * 4 + 0] = integer_color.r;
+        pixelData[i * 4 + 1] = integer_color.g;
+        pixelData[i * 4 + 2] = integer_color.b;
+        pixelData[i * 4 + 3] = integer_color.a;
     }
 
     gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, @intCast(c_int, load_res.width), @intCast(c_int, load_res.height), 1, gl.RGBA, gl.UNSIGNED_BYTE, pixelData.ptr);
@@ -441,13 +441,10 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         .lookAngle = camera_angle,
         .equipped_item = input.equipped_item,
         .breaking = input.breaking,
-        .placing = if (input.placing) |placing|
-            .{
-                .pos = placing.pos,
-                .block = .{ .blockType = placing.block, .blockData = placing.data },
-            }
-        else
-            null,
+        .placing = if (input.placing) |placing| .{
+            .pos = placing.pos,
+            .block = .{ .blockType = placing.block, .blockData = placing.data },
+        } else null,
     };
 
     previous_player_state = player_state;
@@ -470,7 +467,8 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
         var serialized = ArrayList(u8).init(context.alloc);
         defer serialized.deinit();
 
-        try core.protocol.Encoder.init().encode(packet, serialized.writer());
+        var encoder = core.protocol.Encoder.init();
+        try encoder.encode(packet, serialized.writer());
 
         try socket.send(serialized.items);
     }
@@ -501,7 +499,8 @@ pub fn update(context: *platform.Context, current_time: f64, delta: f64) !void {
             var serialized = ArrayList(u8).init(context.alloc);
             defer serialized.deinit();
 
-            try core.protocol.Encoder.init().encode(packet, serialized.writer());
+            var encoder = core.protocol.Encoder.init();
+            try encoder.encode(packet, serialized.writer());
 
             try socket.send(serialized.items);
 

@@ -27,7 +27,7 @@ url: []const u8,
 name: []const u8,
 branch: ?[]const u8 = null,
 sha: []const u8,
-path: []const u8 = null,
+path: []const u8,
 sha_check: ShaCheck = .warn,
 fetch_enabled: bool,
 

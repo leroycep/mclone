@@ -188,7 +188,6 @@ pub const World = struct {
             //try this.updated.put(updated_pos.scaleDivFloor(16), {});
         }
 
-
         // Remove lights
         try this.removeLightv(&lightRemovalBfsQueue, &lightBfsQueue);
     }
@@ -338,7 +337,7 @@ pub const World = struct {
 
         const chunkPos = blockPos.scaleDivFloor(16);
         if (this.chunks.getEntry(chunkPos)) |entry| {
-            if(entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel)) {
+            if (entry.value.setSunlightv(blockPos.subv(chunkPos.scale(16)), lightLevel)) {
                 this.light_that_was_updated.put(blockPos, {}) catch unreachable;
             }
         } else {
@@ -574,7 +573,7 @@ pub const World = struct {
                 }
             }
         } else if (chunkPos.y >= 7) {
-            std.log.debug("Top chunk not loaded", .{});
+            std.log.debug("Top chunk not loaded {}", .{chunkPos});
             var x: u8 = 0;
             while (x < CX) : (x += 1) {
                 var z: u8 = 0;

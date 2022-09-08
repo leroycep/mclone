@@ -46,10 +46,10 @@ pub const Context = struct {
 
 /// _ parameter to get gl.load to not complain
 fn get_proc_address(_: u8, proc: [:0]const u8) ?*anyopaque {
-    return c.SDL_GL_GetProcAddress(proc);
+    return c.SDL_GL_GetProcAddress(proc.ptr);
 }
 
-pub fn run(app: App) !void {
+pub fn run(comptime app: App) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
@@ -69,7 +69,7 @@ pub fn run(app: App) !void {
     const screenHeight = app.window.width orelse 480;
 
     const sdl_window = c.SDL_CreateWindow(
-        app.window.title,
+        app.window.title.ptr,
         c.SDL_WINDOWPOS_UNDEFINED_MASK,
         c.SDL_WINDOWPOS_UNDEFINED_MASK,
         screenWidth,

@@ -71,10 +71,10 @@ pub const FramesSocket = struct {
     status: Status,
 
     user_data: usize,
-    onopen: ?fn (*@This(), usize) void = null,
-    onmessage: ?fn (*@This(), usize, msg: []const u8) void = null,
-    onerror: ?fn (*@This(), usize, err: Error) void = null,
-    onclose: ?fn (*@This(), usize) void = null,
+    onopen: ?*const fn (*@This(), usize) void = null,
+    onmessage: ?*const fn (*@This(), usize, msg: []const u8) void = null,
+    onerror: ?*const fn (*@This(), usize, err: Error) void = null,
+    onclose: ?*const fn (*@This(), usize) void = null,
 
     const Status = enum {
         Connecting,
@@ -172,11 +172,11 @@ pub const FramesSocket = struct {
         }
     }
 
-    pub fn setOnMessage(this: *@This(), callback: fn (*@This(), usize, msg: []const u8) void) void {
+    pub fn setOnMessage(this: *@This(), callback: *const fn (*@This(), usize, msg: []const u8) void) void {
         this.onmessage = callback;
     }
 
-    pub fn setOnError(this: *@This(), callback: fn (*@This(), usize, err: Error) void) void {
+    pub fn setOnError(this: *@This(), callback: *const fn (*@This(), usize, err: Error) void) void {
         this.onerror = callback;
     }
 

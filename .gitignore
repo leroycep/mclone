@@ -5,3 +5,4 @@ deps.zig
 /zig-out/
 /.zigmod/
 /dep/
+/.direnv
